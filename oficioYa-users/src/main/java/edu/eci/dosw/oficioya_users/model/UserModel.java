@@ -20,6 +20,7 @@ public class UserModel {
     private AccountStatus accountStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime deactivatedAt;
     private List<PhoneModel> phones = new ArrayList<>();
     private Set<RoleModel> roles = new HashSet<>();
 }

@@ -25,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import org.mockito.ArgumentCaptor;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,6 +39,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -434,6 +437,25 @@ class UserServiceTest {
                 .getAccountStatus()).isEqualTo(AccountStatus.INACTIVE);
         assertThat(userService.changeStatus(adminId, active.getId(), AccountStatus.ACTIVE, "Resuelto")
                 .getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
+    }
+
+    @Test
+    void changeStatusSetsAndClearsDeactivationDate() {
+        UserEntity active = user(AccountStatus.ACTIVE, "TRABAJADOR");
+        UserEntity inactive = user(AccountStatus.INACTIVE, "TRABAJADOR");
+        inactive.setId(active.getId());
+        inactive.setDeactivatedAt(LocalDateTime.now().minusDays(3));
+        when(userRepository.findById(active.getId())).thenReturn(Optional.of(active), Optional.of(inactive));
+        saveReturnsArgument();
+        LocalDateTime before = LocalDateTime.now();
+
+        userService.changeStatus(adminId, active.getId(), AccountStatus.INACTIVE, "Mal uso");
+        userService.changeStatus(adminId, active.getId(), AccountStatus.ACTIVE, "Resuelto");
+
+        ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository, times(2)).save(saved.capture());
+        assertThat(saved.getAllValues().get(0).getDeactivatedAt()).isAfterOrEqualTo(before);
+        assertThat(saved.getAllValues().get(1).getDeactivatedAt()).isNull();
     }
 
     @Test

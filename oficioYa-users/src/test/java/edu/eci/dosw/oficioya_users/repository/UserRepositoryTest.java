@@ -8,8 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -115,5 +119,33 @@ class UserRepositoryTest {
         assertThat(userRepository.findByEmail("inactivo@mail.com")).get()
                 .extracting(UserEntity::getId).isEqualTo(inactive.getId());
         assertThat(userRepository.findByEmail("otro@mail.com")).isEmpty();
+    }
+
+    @Test
+    void savesDeactivationDate() {
+        UserEntity inactive = newUser("inactivo@mail.com", AccountStatus.INACTIVE);
+        LocalDateTime date = LocalDateTime.of(2026, 11, 1, 10, 30);
+        inactive.setDeactivatedAt(date);
+        userRepository.saveAndFlush(inactive);
+        entityManager.clear();
+
+        assertThat(userRepository.findById(inactive.getId()).orElseThrow().getDeactivatedAt()).isEqualTo(date);
+    }
+
+    /** La sentencia de data.sql completa la fecha de las cuentas inactivas que no la tienen. */
+    @Test
+    void dataSqlFillsDeactivationDateOfOldInactiveAccounts() throws IOException {
+        UserEntity active = newUser("activo@mail.com", AccountStatus.ACTIVE);
+        UserEntity oldInactive = newUser("inactivo@mail.com", AccountStatus.INACTIVE);
+        String backfill = new ClassPathResource("data.sql").getContentAsString(StandardCharsets.UTF_8).lines()
+                .filter(line -> line.startsWith("UPDATE users SET deactivated_at"))
+                .findFirst().orElseThrow();
+
+        entityManager.getEntityManager().createNativeQuery(backfill).executeUpdate();
+        entityManager.clear();
+
+        UserEntity filled = userRepository.findById(oldInactive.getId()).orElseThrow();
+        assertThat(filled.getDeactivatedAt()).isEqualTo(filled.getUpdatedAt());
+        assertThat(userRepository.findById(active.getId()).orElseThrow().getDeactivatedAt()).isNull();
     }
 }

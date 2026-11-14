@@ -60,6 +60,7 @@ class UserEntityMapperTest {
         entity.setEmail("luis@mail.com");
         entity.setAccountStatus(AccountStatus.INACTIVE);
         entity.setCreatedAt(LocalDateTime.now());
+        entity.setDeactivatedAt(LocalDateTime.now().minusDays(1));
         entity.setPhones(List.of(phone));
         entity.setRoles(new HashSet<>(Set.of(role)));
 
@@ -69,6 +70,7 @@ class UserEntityMapperTest {
         assertThat(model.getEmail()).isEqualTo("luis@mail.com");
         assertThat(model.getAccountStatus()).isEqualTo(AccountStatus.INACTIVE);
         assertThat(model.getCreatedAt()).isEqualTo(entity.getCreatedAt());
+        assertThat(model.getDeactivatedAt()).isEqualTo(entity.getDeactivatedAt());
         assertThat(model.getPhones()).extracting(PhoneModel::getNumber).containsExactly("3109876543");
         assertThat(model.getRoles()).extracting(RoleModel::getName).containsExactly("CONTRATANTE");
     }

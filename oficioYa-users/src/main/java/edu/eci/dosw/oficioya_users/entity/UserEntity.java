@@ -37,6 +37,9 @@ public class UserEntity {
 
     private LocalDateTime updatedAt;
 
+    /** Cuándo se desactivó la cuenta; null si está activa (RF-12) */
+    private LocalDateTime deactivatedAt;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PhoneEntity> phones = new ArrayList<>();
 

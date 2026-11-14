@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -206,6 +207,7 @@ public class UserService {
             throw new ConflictException("La cuenta ya está en estado " + status);
         }
         user.setAccountStatus(status);
+        user.setDeactivatedAt(status == AccountStatus.INACTIVE ? LocalDateTime.now() : null);
         log.info("Admin {} cambió la cuenta {} a {}. Motivo: {}", adminId, userId, status, reason);
         return userMapper.toAdmin(save(user));
     }
