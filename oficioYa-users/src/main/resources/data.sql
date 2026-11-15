@@ -32,3 +32,6 @@ INSERT INTO zones (id, name, locality) SELECT 22, 'Kennedy Central', 'Kennedy' W
 INSERT INTO zones (id, name, locality) SELECT 23, 'Castilla', 'Kennedy' WHERE NOT EXISTS (SELECT 1 FROM zones WHERE id = 23);
 INSERT INTO zones (id, name, locality) SELECT 24, 'Patio Bonito', 'Kennedy' WHERE NOT EXISTS (SELECT 1 FROM zones WHERE id = 24);
 INSERT INTO zones (id, name, locality) SELECT 25, 'Bosa Centro', 'Bosa' WHERE NOT EXISTS (SELECT 1 FROM zones WHERE id = 25);
+
+-- RF-12. Las cuentas que ya estaban inactivas antes de existir deactivated_at toman como fecha su última actualización.
+UPDATE users SET deactivated_at = updated_at WHERE account_status = 'INACTIVE' AND deactivated_at IS NULL;
