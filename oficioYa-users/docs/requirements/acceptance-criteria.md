@@ -139,3 +139,16 @@ y [`UserControllerTest`](../../src/test/java/edu/eci/dosw/oficioya_users/control
 | 3 | — | Consulta con un token que no es `SERVICE` o sin token | Recibe 403 o 401 |
 
 Automatizado en `UserServiceTest`, `UserControllerTest` y `UserRepositoryTest`.
+
+## RF-12 Estadísticas de cuentas para Reporting (`GET /api/v1/users/stats/accounts?from=…&to=…`)
+
+| # | Dado | Cuando | Entonces |
+|---|------|--------|----------|
+| 1 | Cuentas registradas hasta la fecha de fin, algunas inactivas | El administrador (vía Reporting) consulta el periodo | `registered` cuenta todas, activas o no, en total y por rol (trabajador y contratante) |
+| 2 | Una cuenta desactivada dentro del periodo y otra desactivada antes | Consulta el periodo | `deactivated` cuenta solo la desactivada dentro del periodo |
+| 3 | Una cuenta con los roles trabajador y contratante | Consulta el periodo | Cuenta en los dos roles y una sola vez en el total |
+| 4 | Una cuenta creada después de la fecha de fin, o un administrador | Consulta el periodo | No se cuentan |
+| 5 | — | Consulta con `from` posterior a `to`, sin alguna de las fechas o con una fecha que no es AAAA-MM-DD | Recibe 400 |
+| 6 | — | Consulta con un token de otro rol (incluido `SERVICE`) o sin token | Recibe 403 o 401 |
+
+Automatizado en `UserServiceTest`, `UserControllerTest`, `UserRepositoryTest` y `UserAcceptanceTest` (RF-12).

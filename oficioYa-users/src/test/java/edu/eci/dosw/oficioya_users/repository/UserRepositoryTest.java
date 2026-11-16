@@ -55,6 +55,29 @@ class UserRepositoryTest {
         return saved;
     }
 
+    /** Cuenta con los roles dados, creada e inactiva si tiene fecha de desactivación */
+    private void account(String email, LocalDateTime createdAt, LocalDateTime deactivatedAt, String... roleNames) {
+        Set<RoleEntity> roles = new HashSet<>();
+        for (String name : roleNames) {
+            roles.add(roleRepository.findByName(name).orElseGet(() -> {
+                RoleEntity role = new RoleEntity();
+                role.setName(name);
+                return roleRepository.save(role);
+            }));
+        }
+        UserEntity user = new UserEntity();
+        user.setName("Cuenta");
+        user.setEmail(email);
+        user.setAccountStatus(deactivatedAt == null ? AccountStatus.ACTIVE : AccountStatus.INACTIVE);
+        user.setDeactivatedAt(deactivatedAt);
+        user.setRoles(roles);
+        UUID id = userRepository.saveAndFlush(user).getId();
+        // created_at no se puede cambiar desde la entidad
+        entityManager.getEntityManager().createNativeQuery("UPDATE users SET created_at = :createdAt WHERE id = :id")
+                .setParameter("createdAt", createdAt).setParameter("id", id).executeUpdate();
+        entityManager.clear();
+    }
+
     @Test
     void savesUserWithPhonesRolesAndDates() {
         UserEntity saved = newUser("ana@mail.com", null);
@@ -130,6 +153,25 @@ class UserRepositoryTest {
         entityManager.clear();
 
         assertThat(userRepository.findById(inactive.getId()).orElseThrow().getDeactivatedAt()).isEqualTo(date);
+    }
+
+    @Test
+    void countsAccountsByRoleRegisteredUntilEndAndDeactivatedInPeriod() {
+        LocalDateTime start = LocalDateTime.of(2026, 11, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 12, 1, 0, 0);
+        account("trabajador@mail.com", start.minusDays(10), null, "TRABAJADOR");
+        account("ambos@mail.com", start.plusDays(3), start.plusDays(5), "TRABAJADOR", "CONTRATANTE");
+        account("antes@mail.com", start.minusDays(40), start.minusDays(2), "CONTRATANTE");
+        account("despues@mail.com", end, null, "CONTRATANTE");
+        account("admin@mail.com", start, null, "ADMIN");
+        List<String> both = List.of("TRABAJADOR", "CONTRATANTE");
+
+        assertThat(userRepository.countRegistered(both, end)).isEqualTo(3);
+        assertThat(userRepository.countRegistered(List.of("TRABAJADOR"), end)).isEqualTo(2);
+        assertThat(userRepository.countRegistered(List.of("CONTRATANTE"), end)).isEqualTo(2);
+        assertThat(userRepository.countDeactivated(both, start, end)).isEqualTo(1);
+        assertThat(userRepository.countDeactivated(List.of("TRABAJADOR"), start, end)).isEqualTo(1);
+        assertThat(userRepository.countDeactivated(List.of("CONTRATANTE"), start, end)).isEqualTo(1);
     }
 
     /** La sentencia de data.sql completa la fecha de las cuentas inactivas que no la tienen. */
