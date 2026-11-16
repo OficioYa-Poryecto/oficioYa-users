@@ -45,6 +45,9 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 | 3 | Un usuario que ya tiene el rol | Lo vuelve a agregar | Recibe 409 |
 | 4 | Un usuario activo | Intenta agregarse el rol ADMIN | Recibe 400 |
 | 5 | El administrador | Intenta agregarse un rol | Recibe 403 |
+| 6 | Un contratante que antes fue trabajador (perfil pausado en Worker) | Vuelve a agregar el rol TRABAJADOR | Su cuenta tiene ambos roles y su perfil en Worker queda `ACTIVE` |
+| 7 | Un contratante sin perfil en Worker | Agrega el rol TRABAJADOR | Su cuenta tiene ambos roles; no se llama a Worker para cambiar estado y el front lo lleva a `/worker/create` |
+| 8 | Worker no responde | Agrega el rol TRABAJADOR | Recibe 503 y el rol no se agrega |
 
 ## RF-03 Consultar perfil propio (`GET /api/v1/users/me`)
 
@@ -139,3 +142,19 @@ y [`UserControllerTest`](../../src/test/java/edu/eci/dosw/oficioya_users/control
 | 3 | — | Consulta con un token que no es `SERVICE` o sin token | Recibe 403 o 401 |
 
 Automatizado en `UserServiceTest`, `UserControllerTest` y `UserRepositoryTest`.
+
+## RF-13 Quitar un rol (`DELETE /api/v1/users/me/roles/{role}`)
+
+| # | Dado | Cuando | Entonces |
+|---|------|--------|----------|
+| 1 | Un usuario con ambos roles y perfil en Worker | Quita el rol TRABAJADOR | Recibe 200 con su perfil, que solo tiene CONTRATANTE, y su perfil en Worker queda `PAUSED` |
+| 2 | Un usuario con ambos roles sin perfil en Worker | Quita el rol TRABAJADOR | Recibe 200 con su perfil, que solo tiene CONTRATANTE |
+| 3 | Un usuario con ambos roles | Quita el rol CONTRATANTE | Recibe 200 con su perfil, que solo tiene TRABAJADOR; no se llama a Worker |
+| 4 | Un usuario con un solo rol | Intenta quitarlo | Recibe 409: la cuenta debe conservar al menos un rol |
+| 5 | Un usuario sin el rol | Intenta quitarlo | Recibe 409 |
+| 6 | Un usuario activo | Intenta quitar el rol ADMIN | Recibe 400 |
+| 7 | El administrador | Intenta quitarse un rol | Recibe 403 |
+| 8 | Worker no responde o falla | Quita el rol TRABAJADOR | Recibe 503 y conserva sus roles |
+
+El token sigue trayendo el rol anterior hasta el próximo login; el front vuelve a iniciar sesión o refresca el token.
+Automatizado en `UserServiceTest` y `WorkerClientTest` (Worker simulado).

@@ -411,4 +411,12 @@ class UserControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("Error interno del servidor"));
     }
+    @Test
+    void removeRoleReturnsUpdatedProfile() throws Exception {
+        when(userService.removeRole(userId, RoleName.TRABAJADOR)).thenReturn(response("Ana"));
+
+        mockMvc.perform(delete("/api/v1/users/me/roles/TRABAJADOR").header(AUTH, token("TRABAJADOR", "CONTRATANTE")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Ana"));
+    }
 }

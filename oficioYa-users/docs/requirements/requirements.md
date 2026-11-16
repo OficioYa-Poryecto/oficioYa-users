@@ -9,7 +9,7 @@ El sistema de OficioYa tiene los siguientes requerimientos (descripción a alto 
 El sistema de OficioYa debe tener la capacidad de:
 
 1. Permitir registrar un usuario con los datos necesarios. En el registro decide si quiere contratar, ofrecer su oficio o ambas cosas
-2. Un mismo usuario puede agregar el rol que no eligió (contratante o trabajador) sin crear otro usuario
+2. Un mismo usuario puede agregar el rol que no eligió (contratante o trabajador) sin crear otro usuario. Si vuelve a agregar el rol de trabajador y ya tenía perfil en Worker, ese perfil se reactiva
 3. Consultar su propio perfil con la información registrada en la plataforma
 4. Editar ciertas secciones principales del perfil (excepto las que están ocultas)
 5. Consultar el perfil de otro usuario, mostrando información básica de acuerdo al tipo de rol
@@ -19,6 +19,7 @@ El sistema de OficioYa debe tener la capacidad de:
 9. Consultar el catálogo de zonas (barrios) donde los trabajadores ofrecen sus servicios
 10. Otros microservicios consultan el nombre y rol(es) de varios usuarios a la vez
 11. Otros microservicios pueden consultar una cuenta de un usuario, ya sea por correo u id y su estado (activa o inactiva)
+13. Un usuario puede quitarse el rol de trabajador o de contratante, siempre que conserve al menos un rol (RF-13)
 
 ### 1.2 Requerimientos no funcionales
 
@@ -58,9 +59,9 @@ Los criterios de aceptación de cada requerimiento funcional están en [Criterio
 | **Descripción**              | *El sistema debe permitir que un usuario agregue el rol que no eligió en el registro (trabajador o contratante) en la misma cuenta, sin crear otra. Los datos que ya tiene la cuenta (nombre, correo y teléfonos) se reutilizan* |
 | **Precondiciones**           | *El usuario está autenticado y su cuenta está Activa*                                                                                                                                                                                                                      |
 | **Actor**                    | *Usuario*                                                                                                                                                                                                                                                                  |
-| **Flujo principal**          | 1. El usuario ingresa a su cuenta<br/>2. Pulsa "Agregar rol de trabajador" (o "Agregar rol de contratante" si solo es trabajador)<br/>3. El sistema le agrega el rol a la misma cuenta<br/>4. Si agregó el rol de trabajador, el front lo lleva a completar su perfil de trabajador (microservicio de Trabajadores)                                |
+| **Flujo principal**          | 1. El usuario ingresa a su cuenta<br/>2. Pulsa "Agregar rol de trabajador" (o "Agregar rol de contratante" si solo es trabajador)<br/>3. Si es el rol de trabajador, el sistema consulta a Worker si el usuario ya tenía perfil de trabajador; si lo tiene, lo reactiva (`ACTIVE`)<br/>4. El sistema le agrega el rol a la misma cuenta<br/>5. Si agregó el rol de trabajador y no tenía perfil, el front lo lleva a completarlo (`/worker/create`, microservicio de Trabajadores)<br/>**Flujo alterno:** si Worker no responde, el sistema responde 503 y no agrega el rol                                |
 | **Diagrama de caso de uso**  | ![Diagrama RF-02](../uml/additional_role.png)                                                                                                                                                                                                                              |
-| **Poscondiciones**           | *La cuenta tiene ambos roles. No se creó otra cuenta ni otro correo*                                                                                                                                       |
+| **Poscondiciones**           | *La cuenta tiene ambos roles. No se creó otra cuenta ni otro correo. Si tenía perfil de trabajador pausado, queda activo*                                                                                                                                       |
 
 ### 2.3 Requerimiento Funcional 3
 
@@ -178,3 +179,17 @@ Los criterios de aceptación de cada requerimiento funcional están en [Criterio
 | **Flujo principal**          | 1. Se envía el correo (sin importar mayúsculas ni espacios) o el id<br/>2. El sistema busca la cuenta, esté Activa o Inactiva<br/>3. El sistema devuelve sus datos completos                                                                                        |
 | **Diagrama de caso de uso**  | ![Diagrama RF-11](../uml/query_account_user.png)                                                                                                                                                                                                                    |
 | **Poscondiciones**           | Quien consulta conoce el estado de la cuenta. El correo no se expone a otros roles                                                                                                                                                                                  |
+
+### 2.13 Requerimiento Funcional 13
+
+| Campo                        | Descripción |
+|------------------------------|-------------|
+| **ID**                       | RF-13 |
+| **Nombre del requerimiento** | Quitar un rol de la cuenta |
+| **Descripción**              | *El sistema debe permitir que un usuario deje de ser trabajador o contratante quitándose ese rol (`DELETE /api/v1/users/me/roles/{role}`). La cuenta debe conservar al menos un rol y el rol ADMIN no se puede quitar. Al quitar el rol de trabajador, su perfil en Worker se pausa (`PAUSED`) para que no aparezca en búsquedas, sin borrar sus datos* |
+| **Precondiciones**           | *El usuario está autenticado, su cuenta está Activa, no es administrador y tiene los dos roles* |
+| **Actor**                    | *Usuario* |
+| **Flujo principal**          | 1. El usuario ingresa a su cuenta<br/>2. Pulsa "Dejar de ser trabajador" (o "Dejar de ser contratante")<br/>3. El sistema valida que tenga el rol y que no sea el único<br/>4. Si es el rol de trabajador, el sistema consulta a Worker su perfil (con un token `SERVICE` propio) y, si existe, lo pausa<br/>5. El sistema quita el rol y devuelve el perfil actualizado<br/>6. El front vuelve a iniciar sesión o refresca el token, porque el token sigue con el rol anterior hasta el próximo login |
+| **Flujos alternos**          | *Rol ADMIN o inexistente: 400. Cuenta inactiva o de administrador: 403. No tiene el rol o es su único rol: 409. Worker no responde o falla: 503 y el rol no cambia* |
+| **Diagrama de caso de uso**  | *Pendiente* |
+| **Poscondiciones**           | *La cuenta conserva solo el otro rol. Si quitó el rol de trabajador, su perfil en Worker queda pausado y se reactiva si vuelve a agregar el rol (RF-02)* |

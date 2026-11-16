@@ -1,5 +1,6 @@
 package edu.eci.dosw.oficioya_users.service;
 
+import edu.eci.dosw.oficioya_users.client.WorkerClient;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
@@ -20,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import edu.eci.dosw.oficioya_users.exception.ApiException;
+import edu.eci.dosw.oficioya_users.exception.ServiceUnavailableException;
 import org.junit.jupiter.api.function.Executable;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,13 +52,15 @@ class UserServiceTest {
     private UserRepository userRepository;
     @Mock
     private RoleRepository roleRepository;
+    @Mock
+    private WorkerClient workerClient;
 
     private UserService userService;
     private final UUID adminId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, roleRepository, new UserEntityMapperImpl(), new UserMapper());
+        userService = new UserService(userRepository, roleRepository, new UserEntityMapperImpl(), new UserMapper(), workerClient);
     }
 
     private static RoleEntity role(String name) {
@@ -525,5 +529,93 @@ class UserServiceTest {
     void findByEmailFailsWhenMissingOrBlank() {
         assertStatus(() -> userService.findByEmail("nadie@mail.com"), HttpStatus.NOT_FOUND);
         assertStatus(() -> userService.findByEmail("  "), HttpStatus.NOT_FOUND);
+    }
+    // RF-02 y RF-13 con Worker (simulado)
+
+    @Test
+    void addWorkerRoleReactivatesExistingWorkerProfile() {
+        UserEntity user = user(AccountStatus.ACTIVE, "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(workerClient.findWorkerIdByUser(user.getId())).thenReturn(Optional.of("w-1"));
+        when(roleRepository.findByName("TRABAJADOR")).thenReturn(Optional.of(role("TRABAJADOR")));
+        saveReturnsArgument();
+
+        assertThat(userService.addRole(user.getId(), RoleName.TRABAJADOR).getRoles())
+                .containsExactlyInAnyOrder("CONTRATANTE", "TRABAJADOR");
+        verify(workerClient).updateStatus("w-1", WorkerClient.ACTIVE);
+    }
+
+    @Test
+    void addWorkerRoleWithoutWorkerProfileOnlyAddsRole() {
+        UserEntity user = user(AccountStatus.ACTIVE, "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(workerClient.findWorkerIdByUser(user.getId())).thenReturn(Optional.empty());
+        when(roleRepository.findByName("TRABAJADOR")).thenReturn(Optional.of(role("TRABAJADOR")));
+        saveReturnsArgument();
+
+        assertThat(userService.addRole(user.getId(), RoleName.TRABAJADOR).getRoles())
+                .containsExactlyInAnyOrder("CONTRATANTE", "TRABAJADOR");
+        verify(workerClient, never()).updateStatus(any(), any());
+    }
+
+    @Test
+    void removeWorkerRolePausesWorkerProfile() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR", "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(workerClient.findWorkerIdByUser(user.getId())).thenReturn(Optional.of("w-1"));
+        saveReturnsArgument();
+
+        assertThat(userService.removeRole(user.getId(), RoleName.TRABAJADOR).getRoles())
+                .containsExactly("CONTRATANTE");
+        verify(workerClient).updateStatus("w-1", WorkerClient.PAUSED);
+    }
+
+    @Test
+    void removeWorkerRoleWithoutWorkerProfileOnlyRemovesRole() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR", "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(workerClient.findWorkerIdByUser(user.getId())).thenReturn(Optional.empty());
+        saveReturnsArgument();
+
+        assertThat(userService.removeRole(user.getId(), RoleName.TRABAJADOR).getRoles())
+                .containsExactly("CONTRATANTE");
+        verify(workerClient, never()).updateStatus(any(), any());
+    }
+
+    @Test
+    void removeContractorRoleDoesNotCallWorker() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR", "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        saveReturnsArgument();
+
+        assertThat(userService.removeRole(user.getId(), RoleName.CONTRATANTE).getRoles())
+                .containsExactly("TRABAJADOR");
+        verifyNoInteractions(workerClient);
+    }
+
+    @Test
+    void removeRoleRejectsLastRole() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertStatus(() -> userService.removeRole(user.getId(), RoleName.TRABAJADOR), HttpStatus.CONFLICT);
+        verifyNoInteractions(workerClient);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void removeRoleRejectsAdminRole() {
+        assertStatus(() -> userService.removeRole(UUID.randomUUID(), RoleName.ADMIN), HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(userRepository, workerClient);
+    }
+
+    @Test
+    void removeWorkerRoleFailsAndKeepsRoleWhenWorkerIsDown() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR", "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(workerClient.findWorkerIdByUser(user.getId())).thenThrow(new ServiceUnavailableException("caído"));
+
+        assertStatus(() -> userService.removeRole(user.getId(), RoleName.TRABAJADOR), HttpStatus.SERVICE_UNAVAILABLE);
+        verify(userRepository, never()).save(any());
     }
 }
