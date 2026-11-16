@@ -1,5 +1,6 @@
 package edu.eci.dosw.oficioya_users.service;
 
+import edu.eci.dosw.oficioya_users.client.WorkerClient;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
@@ -44,6 +45,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final UserEntityMapper userEntityMapper;
     private final UserMapper userMapper;
+    private final WorkerClient workerClient;
 
     /** RF-01 */
     public UserResponseDTO register(UserRequestDTO request) {
@@ -66,20 +68,51 @@ public class UserService {
         return userMapper.toOwn(saved);
     }
 
-    /** RF-02 */
+    /** RF-02. Al agregar TRABAJADOR reactiva su perfil en Worker si ya existía */
     public UserResponseDTO addRole(UUID userId, RoleName roleName) {
         checkNotAdmin(roleName);
         UserModel user = getActiveUser(userId);
 
-        if (user.getRoles().stream().anyMatch(role -> role.getName().equals(RoleName.ADMIN.name()))) {
+        if (hasRole(user, RoleName.ADMIN)) {
             throw new ForbiddenOperationException("El administrador no puede agregarse roles");
         }
 
-        if (user.getRoles().stream().anyMatch(role -> role.getName().equals(roleName.name()))) {
+        if (hasRole(user, roleName)) {
             throw new ConflictException("La cuenta ya tiene el rol " + roleName);
+        }
+        if (roleName == RoleName.TRABAJADOR) {
+            changeWorkerStatus(userId, WorkerClient.ACTIVE);
         }
         user.getRoles().add(findRole(roleName));
         log.info("Rol {} agregado a la cuenta {}", roleName, userId);
+        return userMapper.toOwn(save(user));
+    }
+
+    /**
+     * RF-13. Quita TRABAJADOR o CONTRATANTE; la cuenta conserva al menos un rol.
+     * Al quitar TRABAJADOR pausa su perfil en Worker. Si Worker falla, lanza 503 y el rol no cambia.
+     */
+    public UserResponseDTO removeRole(UUID userId, RoleName roleName) {
+        if (roleName == RoleName.ADMIN) {
+            throw new BadRequestException("El rol ADMIN no se puede quitar desde la cuenta");
+        }
+        UserModel user = getActiveUser(userId);
+
+        if (hasRole(user, RoleName.ADMIN)) {
+            throw new ForbiddenOperationException("El administrador no puede quitarse roles");
+        }
+        if (!hasRole(user, roleName)) {
+            throw new ConflictException("La cuenta no tiene el rol " + roleName);
+        }
+        if (user.getRoles().size() == 1) {
+            throw new ConflictException("La cuenta debe conservar al menos un rol");
+        }
+        // Pendiente (Servicios): aquí va la validación de solicitudes activas antes de quitar el rol
+        if (roleName == RoleName.TRABAJADOR) {
+            changeWorkerStatus(userId, WorkerClient.PAUSED);
+        }
+        user.getRoles().removeIf(role -> role.getName().equals(roleName.name()));
+        log.info("Rol {} quitado de la cuenta {}", roleName, userId);
         return userMapper.toOwn(save(user));
     }
 
@@ -252,6 +285,16 @@ public class UserService {
             throw new ForbiddenOperationException("La cuenta está inactiva");
         }
         return user;
+    }
+
+    private boolean hasRole(UserModel user, RoleName roleName) {
+        return user.getRoles().stream().anyMatch(role -> role.getName().equals(roleName.name()));
+    }
+
+    /** Integración con Worker: si el usuario no tiene perfil de trabajador (404) no se hace nada */
+    private void changeWorkerStatus(UUID userId, String status) {
+        workerClient.findWorkerIdByUser(userId)
+                .ifPresent(workerId -> workerClient.updateStatus(workerId, status));
     }
 
     private void checkNotAdmin(RoleName roleName) {
