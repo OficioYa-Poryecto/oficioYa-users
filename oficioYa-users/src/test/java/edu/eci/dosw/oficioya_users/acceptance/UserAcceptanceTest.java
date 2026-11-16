@@ -2,6 +2,7 @@ package edu.eci.dosw.oficioya_users.acceptance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.eci.dosw.oficioya_users.client.WorkerClient;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -65,6 +67,9 @@ class UserAcceptanceTest {
     private ObjectMapper objectMapper;
     @Value("${jwt.secret}")
     private String secret;
+    /** Worker simulado: responde que el usuario no tiene perfil de trabajador */
+    @MockBean
+    private WorkerClient workerClient;
 
     private UUID adminId;
 

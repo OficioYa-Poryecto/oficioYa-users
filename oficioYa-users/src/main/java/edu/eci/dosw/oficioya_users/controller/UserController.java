@@ -64,9 +64,18 @@ public class UserController {
     }
 
     @PostMapping("/users/me/roles/{role}")
-    @Operation(summary = "Agregar rol", description = "RF-02. Agrega el rol faltante a la misma cuenta")
+    @Operation(summary = "Agregar rol", description = "RF-02. Agrega el rol faltante a la misma cuenta. "
+            + "Si es TRABAJADOR y ya tenía perfil en Worker, lo reactiva (ACTIVE)")
     public UserResponseDTO addRole(@AuthenticationPrincipal UUID userId, @PathVariable RoleName role) {
         return userService.addRole(userId, role);
+    }
+
+    @DeleteMapping("/users/me/roles/{role}")
+    @Operation(summary = "Quitar rol", description = "RF-13. Quita TRABAJADOR o CONTRATANTE; al quitar TRABAJADOR "
+            + "pausa su perfil en Worker. 400 si es ADMIN, 403 cuenta de admin, 409 si no lo tiene o es el único, "
+            + "503 si Worker no responde")
+    public UserResponseDTO removeRole(@AuthenticationPrincipal UUID userId, @PathVariable RoleName role) {
+        return userService.removeRole(userId, role);
     }
 
     @GetMapping("/users/me/phones")
