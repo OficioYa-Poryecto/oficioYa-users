@@ -1,5 +1,6 @@
 package edu.eci.dosw.oficioya_users.controller;
 
+import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
@@ -10,12 +11,14 @@ import edu.eci.dosw.oficioya_users.enums.RoleName;
 import edu.eci.dosw.oficioya_users.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -130,6 +133,16 @@ public class UserController {
     public UserResponseDTO activate(@AuthenticationPrincipal UUID adminId, @PathVariable UUID id,
                                     @Valid @RequestBody StatusChangeDTO request) {
         return userService.changeStatus(adminId, id, AccountStatus.ACTIVE, request.getReason());
+    }
+
+    @GetMapping("/users/stats/accounts")
+    @Operation(summary = "Estadísticas de cuentas",
+            description = "RF-12. Solo ADMIN (Reporting reenvía el token del administrador). Cuentas registradas hasta 'to' "
+                    + "y desactivadas entre 'from' y 'to', en total y por rol. Fechas en formato AAAA-MM-DD")
+    public AccountStatsDTO accountStats(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return userService.getAccountStats(from, to);
     }
 
     @GetMapping("/users/by-email")

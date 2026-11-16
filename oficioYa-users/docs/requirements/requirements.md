@@ -19,6 +19,7 @@ El sistema de OficioYa debe tener la capacidad de:
 9. Consultar el catálogo de zonas (barrios) donde los trabajadores ofrecen sus servicios
 10. Otros microservicios consultan el nombre y rol(es) de varios usuarios a la vez
 11. Otros microservicios pueden consultar una cuenta de un usuario, ya sea por correo u id y su estado (activa o inactiva)
+12. El administrador, a través del microservicio de Reporting, consulta cuántas cuentas hay registradas y cuántas se desactivaron en un periodo, en total y por rol
 13. Un usuario puede quitarse el rol de trabajador o de contratante, siempre que conserve al menos un rol (RF-13)
 
 ### 1.2 Requerimientos no funcionales
@@ -179,6 +180,18 @@ Los criterios de aceptación de cada requerimiento funcional están en [Criterio
 | **Flujo principal**          | 1. Se envía el correo (sin importar mayúsculas ni espacios) o el id<br/>2. El sistema busca la cuenta, esté Activa o Inactiva<br/>3. El sistema devuelve sus datos completos                                                                                        |
 | **Diagrama de caso de uso**  | ![Diagrama RF-11](../uml/query_account_user.png)                                                                                                                                                                                                                    |
 | **Poscondiciones**           | Quien consulta conoce el estado de la cuenta. El correo no se expone a otros roles                                                                                                                                                                                  |
+
+### 2.12 Requerimiento Funcional 12
+
+| Campo                        | Descripción |
+|------------------------------|-------------|
+| **ID**                       | RF-12 |
+| **Nombre del requerimiento** | Consultar estadísticas de cuentas para Reporting |
+| **Descripción**              | El sistema debe entregar al microservicio de Reporting los conteos de cuentas de un periodo (`GET /api/v1/users/stats/accounts?from=AAAA-MM-DD&to=AAAA-MM-DD`): las cuentas **registradas** hasta la fecha de fin (activas o inactivas) y las cuentas **desactivadas** (eliminación lógica) dentro del periodo, cada uno en total y por rol (trabajador y contratante). Con esto Reporting calcula los porcentajes que ve el administrador |
+| **Precondiciones**           | El administrador está autenticado. Reporting llama a través del Orchestrator reenviando el token del administrador (rol `ADMIN`) |
+| **Actor**                    | Administrador, a través del microservicio de Reporting |
+| **Flujo principal**          | 1. Reporting envía la fecha de inicio (`from`) y la de fin (`to`); ambos días se incluyen<br/>2. El sistema valida que estén las dos fechas, con formato AAAA-MM-DD, y que `from` no sea posterior a `to`<br/>3. El sistema cuenta las cuentas creadas hasta el final del día `to`, en total y por rol<br/>4. El sistema cuenta las cuentas cuya fecha de desactivación está dentro del periodo, en total y por rol<br/>5. El sistema devuelve `registered` y `deactivated`, cada uno con `total`, `trabajador` y `contratante` |
+| **Poscondiciones**           | Reporting recibe solo conteos (calcula los porcentajes por su cuenta). Una cuenta con ambos roles cuenta en los dos, así que el total puede ser menor que la suma de los roles. Los administradores no se cuentan. Al desactivar una cuenta se guarda su fecha de desactivación y al reactivarla se borra, así que una cuenta reactivada deja de contar como desactivada |
 
 ### 2.13 Requerimiento Funcional 13
 

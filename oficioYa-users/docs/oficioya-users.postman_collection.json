@@ -1864,6 +1864,156 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Estadísticas (Reporting)",
+      "item": [
+        {
+          "name": "27. Admin consulta estadísticas de cuentas (Reporting)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Trae registradas y desactivadas por rol', () => ['registered', 'deactivated'].forEach(g => pm.expect(res[g]).to.have.all.keys('total', 'trabajador', 'contratante')));",
+                  "pm.test('El total no supera la suma de los roles', () => pm.expect(res.registered.total).to.be.at.most(res.registered.trabajador + res.registered.contratante));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/stats/accounts?from=2020-01-01&to=2099-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "stats",
+                "accounts"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2020-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2099-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "28. Error: estadísticas sin rol ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/stats/accounts?from=2026-11-01&to=2026-11-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "stats",
+                "accounts"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-11-30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "29. Error: fecha de inicio posterior a la de fin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Explica el error', () => pm.expect(pm.response.json().message).to.include('posterior'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/stats/accounts?from=2026-11-30&to=2026-11-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "stats",
+                "accounts"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-30"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-11-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [
