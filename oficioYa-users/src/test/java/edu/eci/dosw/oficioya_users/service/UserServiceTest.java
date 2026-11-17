@@ -2,6 +2,7 @@ package edu.eci.dosw.oficioya_users.service;
 
 import edu.eci.dosw.oficioya_users.client.WorkerClient;
 import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
+import edu.eci.dosw.oficioya_users.client.RequestsClient;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
@@ -57,13 +58,15 @@ class UserServiceTest {
     private RoleRepository roleRepository;
     @Mock
     private WorkerClient workerClient;
+    @Mock
+    private RequestsClient requestsClient;
 
     private UserService userService;
     private final UUID adminId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, roleRepository, new UserEntityMapperImpl(), new UserMapper(), workerClient);
+        userService = new UserService(userRepository, roleRepository, new UserEntityMapperImpl(), new UserMapper(), workerClient, requestsClient);
     }
 
     private static RoleEntity role(String name) {
@@ -641,14 +644,14 @@ class UserServiceTest {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
         assertStatus(() -> userService.removeRole(user.getId(), RoleName.TRABAJADOR), HttpStatus.CONFLICT);
-        verifyNoInteractions(workerClient);
+        verifyNoInteractions(workerClient, requestsClient);
         verify(userRepository, never()).save(any());
     }
 
     @Test
     void removeRoleRejectsAdminRole() {
         assertStatus(() -> userService.removeRole(UUID.randomUUID(), RoleName.ADMIN), HttpStatus.BAD_REQUEST);
-        verifyNoInteractions(userRepository, workerClient);
+        verifyNoInteractions(userRepository, workerClient, requestsClient);
     }
 
     @Test
@@ -658,6 +661,29 @@ class UserServiceTest {
         when(workerClient.findWorkerIdByUser(user.getId())).thenThrow(new ServiceUnavailableException("caído"));
 
         assertStatus(() -> userService.removeRole(user.getId(), RoleName.TRABAJADOR), HttpStatus.SERVICE_UNAVAILABLE);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void removeRoleRejectsWhenUserHasActiveRequestsInThatRole() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR", "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(requestsClient.countActive(user.getId(), RoleName.TRABAJADOR)).thenReturn(2L);
+
+        assertStatus(() -> userService.removeRole(user.getId(), RoleName.TRABAJADOR), HttpStatus.CONFLICT);
+        verifyNoInteractions(workerClient);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void removeRoleFailsAndKeepsRoleWhenRequestsServiceIsDown() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR", "CONTRATANTE");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(requestsClient.countActive(user.getId(), RoleName.CONTRATANTE))
+                .thenThrow(new ServiceUnavailableException("caído"));
+
+        assertStatus(() -> userService.removeRole(user.getId(), RoleName.CONTRATANTE), HttpStatus.SERVICE_UNAVAILABLE);
+        verifyNoInteractions(workerClient);
         verify(userRepository, never()).save(any());
     }
 }

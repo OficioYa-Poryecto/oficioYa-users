@@ -38,16 +38,16 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 
 ## RF-02 Agregar rol (`POST /api/v1/users/me/roles/{role}`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Un contratante activo | Agrega el rol TRABAJADOR | Su cuenta tiene ambos roles, sin crear otra cuenta |
-| 2 | Un trabajador activo | Agrega el rol CONTRATANTE | Su cuenta tiene ambos roles, sin crear otra cuenta |
-| 3 | Un usuario que ya tiene el rol | Lo vuelve a agregar | Recibe 409 |
-| 4 | Un usuario activo | Intenta agregarse el rol ADMIN | Recibe 400 |
-| 5 | El administrador | Intenta agregarse un rol | Recibe 403 |
-| 6 | Un contratante que antes fue trabajador (perfil pausado en Worker) | Vuelve a agregar el rol TRABAJADOR | Su cuenta tiene ambos roles y su perfil en Worker queda `ACTIVE` |
-| 7 | Un contratante sin perfil en Worker | Agrega el rol TRABAJADOR | Su cuenta tiene ambos roles; no se llama a Worker para cambiar estado y el front lo lleva a `/worker/create` |
-| 8 | Worker no responde | Agrega el rol TRABAJADOR | Recibe 503 y el rol no se agrega |
+| # | Dado                                                               | Cuando                             | Entonces                                                                                                     |
+|---|--------------------------------------------------------------------|------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| 1 | Un contratante activo                                              | Agrega el rol TRABAJADOR           | Su cuenta tiene ambos roles, sin crear otra cuenta                                                           |
+| 2 | Un trabajador activo                                               | Agrega el rol CONTRATANTE          | Su cuenta tiene ambos roles, sin crear otra cuenta                                                           |
+| 3 | Un usuario que ya tiene el rol                                     | Lo vuelve a agregar                | Recibe 409                                                                                                   |
+| 4 | Un usuario activo                                                  | Intenta agregarse el rol ADMIN     | Recibe 400                                                                                                   |
+| 5 | El administrador                                                   | Intenta agregarse un rol           | Recibe 403                                                                                                   |
+| 6 | Un contratante que antes fue trabajador (perfil pausado en Worker) | Vuelve a agregar el rol TRABAJADOR | Su cuenta tiene ambos roles y su perfil en Worker queda `ACTIVE`                                             |
+| 7 | Un contratante sin perfil en Worker                                | Agrega el rol TRABAJADOR           | Su cuenta tiene ambos roles; no se llama a Worker para cambiar estado y el front lo lleva a `/worker/create` |
+| 8 | Worker no responde                                                 | Agrega el rol TRABAJADOR           | Recibe 503 y el rol no se agrega                                                                             |
 
 ## RF-03 Consultar perfil propio (`GET /api/v1/users/me`)
 
@@ -58,116 +58,118 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 
 ## RF-04 Editar perfil propio (`PATCH /api/v1/users/me`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Un usuario activo | Cambia su nombre y sus teléfonos | Quedan guardados el nombre nuevo y solo los teléfonos nuevos; el correo no cambia |
-| 2 | Un usuario activo | Envía teléfonos sin uno principal | Recibe 400 |
+| # | Dado              | Cuando                            | Entonces                                                                          |
+|---|-------------------|-----------------------------------|-----------------------------------------------------------------------------------|
+| 1 | Un usuario activo | Cambia su nombre y sus teléfonos  | Quedan guardados el nombre nuevo y solo los teléfonos nuevos; el correo no cambia |
+| 2 | Un usuario activo | Envía teléfonos sin uno principal | Recibe 400                                                                        |
 
 ### Teléfonos del perfil propio (`/api/v1/users/me/phones`)
 
 Estos criterios están automatizados en [`UserServiceTest`](../../src/test/java/edu/eci/dosw/oficioya_users/service/UserServiceTest.java)
 y [`UserControllerTest`](../../src/test/java/edu/eci/dosw/oficioya_users/controller/UserControllerTest.java).
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 3 | Un usuario activo | Consulta sus teléfonos para editarlos (`GET`) | Recibe sus teléfonos completos (sin enmascarar) con su id |
-| 4 | Un usuario activo con menos de 3 teléfonos | Agrega un teléfono (`POST`) | Queda guardado como adicional |
-| 5 | Un usuario activo con 3 teléfonos | Agrega otro teléfono | Recibe 400 |
-| 6 | Un usuario activo | Agrega un número que ya tiene registrado | Recibe 409 |
-| 7 | Un usuario activo | Agrega un número que no es un celular de 10 dígitos que empieza por 3 | Recibe 400 con el mensaje "Ingrese un teléfono válido" |
-| 8 | Un usuario activo | Modifica el número de un teléfono (`PATCH /{phoneId}`) | Queda guardado el número nuevo y el teléfono conserva su tipo (principal o adicional) |
-| 9 | Un usuario activo | Modifica un teléfono que no existe | Recibe 404 |
-| 10 | Un usuario activo | Elimina un teléfono adicional (`DELETE /{phoneId}`) | El teléfono deja de estar en la cuenta |
-| 11 | Un usuario activo | Intenta eliminar el teléfono principal | Recibe 400 |
+| #  | Dado                                       | Cuando                                                                | Entonces                                                                              |
+|----|--------------------------------------------|-----------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| 3  | Un usuario activo                          | Consulta sus teléfonos para editarlos (`GET`)                         | Recibe sus teléfonos completos (sin enmascarar) con su id                             |
+| 4  | Un usuario activo con menos de 3 teléfonos | Agrega un teléfono (`POST`)                                           | Queda guardado como adicional                                                         |
+| 5  | Un usuario activo con 3 teléfonos          | Agrega otro teléfono                                                  | Recibe 400                                                                            |
+| 6  | Un usuario activo                          | Agrega un número que ya tiene registrado                              | Recibe 409                                                                            |
+| 7  | Un usuario activo                          | Agrega un número que no es un celular de 10 dígitos que empieza por 3 | Recibe 400 con el mensaje "Ingrese un teléfono válido"                                |
+| 8  | Un usuario activo                          | Modifica el número de un teléfono (`PATCH /{phoneId}`)                | Queda guardado el número nuevo y el teléfono conserva su tipo (principal o adicional) |
+| 9  | Un usuario activo                          | Modifica un teléfono que no existe                                    | Recibe 404                                                                            |
+| 10 | Un usuario activo                          | Elimina un teléfono adicional (`DELETE /{phoneId}`)                   | El teléfono deja de estar en la cuenta                                                |
+| 11 | Un usuario activo                          | Intenta eliminar el teléfono principal                                | Recibe 400                                                                            |
 
 ## RF-05 Consultar perfil público (`GET /api/v1/users/{id}`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Otro usuario activo | Consulto su perfil | Solo veo id, nombre y roles (sin correo ni teléfonos) |
-| 2 | Un usuario desactivado | Consulto su perfil público | Recibo 404 |
-| 3 | Que mi propia cuenta está desactivada | Consulto un perfil público | Recibo 403 |
+| # | Dado                                  | Cuando                     | Entonces                                              |
+|---|---------------------------------------|----------------------------|-------------------------------------------------------|
+| 1 | Otro usuario activo                   | Consulto su perfil         | Solo veo id, nombre y roles (sin correo ni teléfonos) |
+| 2 | Un usuario desactivado                | Consulto su perfil público | Recibo 404                                            |
+| 3 | Que mi propia cuenta está desactivada | Consulto un perfil público | Recibo 403                                            |
 
 ## RF-06 Desactivar cuenta (`PATCH /api/v1/admin/users/{id}/deactivate`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Un usuario activo | El admin lo desactiva con motivo | La cuenta queda Inactiva y el usuario recibe 403 al usar su perfil |
-| 2 | Un usuario activo | El admin lo desactiva sin motivo | Recibe 400 |
-| 3 | Una cuenta ya inactiva | El admin la vuelve a desactivar | Recibe 409 |
-| 4 | El administrador | Intenta desactivar su propia cuenta | Recibe 403 |
-| 5 | Un usuario que no es admin | Intenta desactivar una cuenta | Recibe 403 |
-| 6 | Un usuario activo | El admin lo desactiva con un motivo de menos de 10 caracteres | Recibe 400 (automatizado en `UserControllerTest`) |
+| # | Dado                       | Cuando                                                        | Entonces                                                           |
+|---|----------------------------|---------------------------------------------------------------|--------------------------------------------------------------------|
+| 1 | Un usuario activo          | El admin lo desactiva con motivo                              | La cuenta queda Inactiva y el usuario recibe 403 al usar su perfil |
+| 2 | Un usuario activo          | El admin lo desactiva sin motivo                              | Recibe 400                                                         |
+| 3 | Una cuenta ya inactiva     | El admin la vuelve a desactivar                               | Recibe 409                                                         |
+| 4 | El administrador           | Intenta desactivar su propia cuenta                           | Recibe 403                                                         |
+| 5 | Un usuario que no es admin | Intenta desactivar una cuenta                                 | Recibe 403                                                         |
+| 6 | Un usuario activo          | El admin lo desactiva con un motivo de menos de 10 caracteres | Recibe 400 (automatizado en `UserControllerTest`)                  |
 
 ## RF-07 Reactivar cuenta (`PATCH /api/v1/admin/users/{id}/activate`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Un usuario inactivo | El admin lo reactiva con motivo | La cuenta queda Activa y el usuario vuelve a usar su perfil |
-| 2 | Una cuenta ya activa | El admin la reactiva | Recibe 409 |
+| # | Dado                 | Cuando                          | Entonces                                                    |
+|---|----------------------|---------------------------------|-------------------------------------------------------------|
+| 1 | Un usuario inactivo  | El admin lo reactiva con motivo | La cuenta queda Activa y el usuario vuelve a usar su perfil |
+| 2 | Una cuenta ya activa | El admin la reactiva            | Recibe 409                                                  |
 
 ## RF-08 Consultar información completa (`GET /api/v1/admin/users`, `GET /api/v1/admin/users/{id}`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Un usuario registrado | El admin lo consulta | Ve correo, teléfonos, estado y fechas sin enmascarar |
-| 2 | Cuentas registradas | El admin lista los usuarios | Aparecen las cuentas registradas |
-| 3 | Un id que no existe | El admin lo consulta | Recibe 404 |
-| 4 | Un usuario que no es admin | Consulta la información completa | Recibe 403 |
+| # | Dado                       | Cuando                           | Entonces                                             |
+|---|----------------------------|----------------------------------|------------------------------------------------------|
+| 1 | Un usuario registrado      | El admin lo consulta             | Ve correo, teléfonos, estado y fechas sin enmascarar |
+| 2 | Cuentas registradas        | El admin lista los usuarios      | Aparecen las cuentas registradas                     |
+| 3 | Un id que no existe        | El admin lo consulta             | Recibe 404                                           |
+| 4 | Un usuario que no es admin | Consulta la información completa | Recibe 403                                           |
 
 ## RF-09 Consultar el catálogo de zonas (`GET /api/v1/zones`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | — | Consulto las zonas sin token | Recibo 200 con los 25 barrios (id, nombre y localidad) ordenados por id |
-| 2 | Unos ids, algunos repetidos o inexistentes (`?ids=13,2,2,999`) | Los consulto | Recibo solo las zonas que existen, sin repetidas y ordenadas por id |
-| 3 | — | Envío un id que no es número | Recibo 400 |
-| 4 | Más de 50 ids distintos | Los consulto | Recibo 400 (automatizado en `ZoneServiceTest` y `ZoneControllerTest`) |
+| # | Dado                                                           | Cuando                       | Entonces                                                                |
+|---|----------------------------------------------------------------|------------------------------|-------------------------------------------------------------------------|
+| 1 | —                                                              | Consulto las zonas sin token | Recibo 200 con los 25 barrios (id, nombre y localidad) ordenados por id |
+| 2 | Unos ids, algunos repetidos o inexistentes (`?ids=13,2,2,999`) | Los consulto                 | Recibo solo las zonas que existen, sin repetidas y ordenadas por id     |
+| 3 | —                                                              | Envío un id que no es número | Recibo 400                                                              |
+| 4 | Más de 50 ids distintos                                        | Los consulto                 | Recibo 400 (automatizado en `ZoneServiceTest` y `ZoneControllerTest`)   |
 
 ## RF-10 Consultar varios usuarios a la vez (`GET /api/v1/users?ids=…`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Cuentas activas | Las consulto por sus ids con cualquier rol (incluido `SERVICE`) | Recibo sus datos públicos |
-| 2 | Una cuenta inactiva o un id que no existe | Lo incluyo en los ids | No aparece en la respuesta |
-| 3 | Más de 50 ids | Los consulto | Recibo 400 |
-| 4 | — | Consulto sin token | Recibo 401 |
+| # | Dado                                      | Cuando                                                          | Entonces                   |
+|---|-------------------------------------------|-----------------------------------------------------------------|----------------------------|
+| 1 | Cuentas activas                           | Las consulto por sus ids con cualquier rol (incluido `SERVICE`) | Recibo sus datos públicos  |
+| 2 | Una cuenta inactiva o un id que no existe | Lo incluyo en los ids                                           | No aparece en la respuesta |
+| 3 | Más de 50 ids                             | Los consulto                                                    | Recibo 400                 |
+| 4 | —                                         | Consulto sin token                                              | Recibo 401                 |
 
 ## RF-11 Consultar la cuenta de un usuario (`GET /api/v1/users/by-email?email=…` y `GET /api/v1/users/{id}/account`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
+| # | Dado                                      | Cuando                                                                                             | Entonces                                                                  |
+|---|-------------------------------------------|----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
 | 1 | Una cuenta registrada (Activa o Inactiva) | Identity la consulta por correo (sin importar mayúsculas ni espacios) o por id con token `SERVICE` | Recibe sus datos completos: id, nombre, correo, teléfonos, roles y estado |
-| 2 | Un correo o id que no existe | Lo consulta | Recibe 404 |
-| 3 | — | Consulta con un token que no es `SERVICE` o sin token | Recibe 403 o 401 |
+| 2 | Un correo o id que no existe              | Lo consulta                                                                                        | Recibe 404                                                                |
+| 3 | —                                         | Consulta con un token que no es `SERVICE` o sin token                                              | Recibe 403 o 401                                                          |
 
 Automatizado en `UserServiceTest`, `UserControllerTest` y `UserRepositoryTest`.
 
 ## RF-12 Estadísticas de cuentas para Reporting (`GET /api/v1/users/stats/accounts?from=…&to=…`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Cuentas registradas hasta la fecha de fin, algunas inactivas | El administrador (vía Reporting) consulta el periodo | `registered` cuenta todas, activas o no, en total y por rol (trabajador y contratante) |
-| 2 | Una cuenta desactivada dentro del periodo y otra desactivada antes | Consulta el periodo | `deactivated` cuenta solo la desactivada dentro del periodo |
-| 3 | Una cuenta con los roles trabajador y contratante | Consulta el periodo | Cuenta en los dos roles y una sola vez en el total |
-| 4 | Una cuenta creada después de la fecha de fin, o un administrador | Consulta el periodo | No se cuentan |
-| 5 | — | Consulta con `from` posterior a `to`, sin alguna de las fechas o con una fecha que no es AAAA-MM-DD | Recibe 400 |
-| 6 | — | Consulta con un token de otro rol (incluido `SERVICE`) o sin token | Recibe 403 o 401 |
+| # | Dado                                                               | Cuando                                                                                              | Entonces                                                                               |
+|---|--------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| 1 | Cuentas registradas hasta la fecha de fin, algunas inactivas       | El administrador (vía Reporting) consulta el periodo                                                | `registered` cuenta todas, activas o no, en total y por rol (trabajador y contratante) |
+| 2 | Una cuenta desactivada dentro del periodo y otra desactivada antes | Consulta el periodo                                                                                 | `deactivated` cuenta solo la desactivada dentro del periodo                            |
+| 3 | Una cuenta con los roles trabajador y contratante                  | Consulta el periodo                                                                                 | Cuenta en los dos roles y una sola vez en el total                                     |
+| 4 | Una cuenta creada después de la fecha de fin, o un administrador   | Consulta el periodo                                                                                 | No se cuentan                                                                          |
+| 5 | —                                                                  | Consulta con `from` posterior a `to`, sin alguna de las fechas o con una fecha que no es AAAA-MM-DD | Recibe 400                                                                             |
+| 6 | —                                                                  | Consulta con un token de otro rol (incluido `SERVICE`) o sin token                                  | Recibe 403 o 401                                                                       |
 
 Automatizado en `UserServiceTest`, `UserControllerTest`, `UserRepositoryTest` y `UserAcceptanceTest` (RF-12).
 
 ## RF-13 Quitar un rol (`DELETE /api/v1/users/me/roles/{role}`)
 
-| # | Dado | Cuando | Entonces |
-|---|------|--------|----------|
-| 1 | Un usuario con ambos roles y perfil en Worker | Quita el rol TRABAJADOR | Recibe 200 con su perfil, que solo tiene CONTRATANTE, y su perfil en Worker queda `PAUSED` |
-| 2 | Un usuario con ambos roles sin perfil en Worker | Quita el rol TRABAJADOR | Recibe 200 con su perfil, que solo tiene CONTRATANTE |
-| 3 | Un usuario con ambos roles | Quita el rol CONTRATANTE | Recibe 200 con su perfil, que solo tiene TRABAJADOR; no se llama a Worker |
-| 4 | Un usuario con un solo rol | Intenta quitarlo | Recibe 409: la cuenta debe conservar al menos un rol |
-| 5 | Un usuario sin el rol | Intenta quitarlo | Recibe 409 |
-| 6 | Un usuario activo | Intenta quitar el rol ADMIN | Recibe 400 |
-| 7 | El administrador | Intenta quitarse un rol | Recibe 403 |
-| 8 | Worker no responde o falla | Quita el rol TRABAJADOR | Recibe 503 y conserva sus roles |
+| #  | Dado                                                                                             | Cuando                      | Entonces                                                                                   |
+|----|--------------------------------------------------------------------------------------------------|-----------------------------|--------------------------------------------------------------------------------------------|
+| 1  | Un usuario con ambos roles y perfil en Worker                                                    | Quita el rol TRABAJADOR     | Recibe 200 con su perfil, que solo tiene CONTRATANTE, y su perfil en Worker queda `PAUSED` |
+| 2  | Un usuario con ambos roles sin perfil en Worker                                                  | Quita el rol TRABAJADOR     | Recibe 200 con su perfil, que solo tiene CONTRATANTE                                       |
+| 3  | Un usuario con ambos roles                                                                       | Quita el rol CONTRATANTE    | Recibe 200 con su perfil, que solo tiene TRABAJADOR; no se llama a Worker                  |
+| 4  | Un usuario con un solo rol                                                                       | Intenta quitarlo            | Recibe 409: la cuenta debe conservar al menos un rol                                       |
+| 5  | Un usuario sin el rol                                                                            | Intenta quitarlo            | Recibe 409                                                                                 |
+| 6  | Un usuario activo                                                                                | Intenta quitar el rol ADMIN | Recibe 400                                                                                 |
+| 7  | El administrador                                                                                 | Intenta quitarse un rol     | Recibe 403                                                                                 |
+| 8  | Worker no responde o falla                                                                       | Quita el rol TRABAJADOR     | Recibe 503 y conserva sus roles                                                            |
+| 9  | Un usuario con ambos roles y solicitudes activas (`PENDING`, `ACCEPTED` o `CONFLICT`) en ese rol | Intenta quitarlo            | Recibe 409 con el número de solicitudes activas; conserva sus roles y no se llama a Worker |
+| 10 | Servicios no responde o falla                                                                    | Quita un rol                | Recibe 503 y conserva sus roles; no se llama a Worker                                      |
 
 El token sigue trayendo el rol anterior hasta el próximo login; el front vuelve a iniciar sesión o refresca el token.
-Automatizado en `UserServiceTest` y `WorkerClientTest` (Worker simulado).
+Automatizado en `UserServiceTest`, `WorkerClientTest` y `RequestsClientTest` (Worker y Servicios simulado).
