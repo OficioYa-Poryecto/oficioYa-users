@@ -1,5 +1,7 @@
 package edu.eci.dosw.oficioya_users.controller;
 
+import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
+import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.dto.UserUpdateDTO;
@@ -21,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -42,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class UserControllerTest {
     static final String SECRET = "IadhiSp/AVyloXuE15l29oZzpucys4NEfqpHn6PEMeQ=";
     private static final String AUTH = "Authorization";
+    private static final String STATS = "/api/v1/users/stats/accounts";
     private static final String REGISTER_BODY = """
             {"name":"Ana","email":"ana@mail.com",
              "phones":[{"number":"3001234567","principal":true}],"roles":["TRABAJADOR"]}""";
@@ -96,6 +100,35 @@ class UserControllerTest {
         verifyNoInteractions(userService);
         mockMvc.perform(delete("/api/v1/users/{id}", id).header(AUTH, token("SERVICE")))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void accountStatsOnlyAllowedForAdmin() throws Exception {
+        when(userService.getAccountStats(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30)))
+                .thenReturn(new AccountStatsDTO(new RoleCountDTO(1480, 620, 900), new RoleCountDTO(40, 15, 28)));
+
+        mockMvc.perform(get(STATS).param("from", "2026-11-01").param("to", "2026-11-30"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(STATS).param("from", "2026-11-01").param("to", "2026-11-30").header(AUTH, token("SERVICE")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(STATS).param("from", "2026-11-01").param("to", "2026-11-30").header(AUTH, token("CONTRATANTE")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(STATS).param("from", "2026-11-01").param("to", "2026-11-30").header(AUTH, token("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.registered.total").value(1480))
+                .andExpect(jsonPath("$.registered.trabajador").value(620))
+                .andExpect(jsonPath("$.registered.contratante").value(900))
+                .andExpect(jsonPath("$.deactivated.total").value(40))
+                .andExpect(jsonPath("$.deactivated.trabajador").value(15))
+                .andExpect(jsonPath("$.deactivated.contratante").value(28));
+    }
+
+    @Test
+    void accountStatsRejectsDateWithWrongFormat() throws Exception {
+        mockMvc.perform(get(STATS).param("from", "01/11/2026").param("to", "2026-11-30").header(AUTH, token("ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Valor inválido para 'from'"));
+        verifyNoInteractions(userService);
     }
 
     @Test

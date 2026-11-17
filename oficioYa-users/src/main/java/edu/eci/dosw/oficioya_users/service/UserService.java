@@ -1,7 +1,9 @@
 package edu.eci.dosw.oficioya_users.service;
 
 import edu.eci.dosw.oficioya_users.client.WorkerClient;
+import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
+import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.dto.UserUpdateDTO;
@@ -23,13 +25,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -245,6 +250,28 @@ public class UserService {
         return userMapper.toAdmin(save(user));
     }
 
+    /**
+     * RF-12. Para Reporting: cuentas registradas (activas o no) y cuentas desactivadas entre.
+     * Los administradores no cuentan porque no tienen rol de cuenta
+     */
+    public AccountStatsDTO getAccountStats(LocalDate from, LocalDate to) {
+        if (from == null || to == null) {
+            throw new BadRequestException("Las fechas from y to son obligatorias (formato AAAA-MM-DD)");
+        }
+        if (from.isAfter(to)) {
+            throw new BadRequestException("La fecha from no puede ser posterior a to");
+        }
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = to.plusDays(1).atStartOfDay();
+
+        AccountStatsDTO stats = new AccountStatsDTO(
+                countByRole(roles -> userRepository.countRegistered(roles, end)),
+                countByRole(roles -> userRepository.countDeactivated(roles, start, end)));
+        log.info("Estadísticas de cuentas del {} al {}: {} registradas, {} desactivadas",
+                from, to, stats.registered().total(), stats.deactivated().total());
+        return stats;
+    }
+
     public void deleteById(UUID id) {
         if (!userRepository.existsById(id)) {
             throw notFound(id);
@@ -269,6 +296,13 @@ public class UserService {
                 .filter(phone -> phone.getId() == null || ids.add(phone.getId()))
                 .toList());
         return saved;
+    }
+
+    private static RoleCountDTO countByRole(ToLongFunction<Collection<String>> counter) {
+        String worker = RoleName.TRABAJADOR.name();
+        String contractor = RoleName.CONTRATANTE.name();
+        return new RoleCountDTO(counter.applyAsLong(List.of(worker, contractor)),
+                counter.applyAsLong(List.of(worker)), counter.applyAsLong(List.of(contractor)));
     }
 
     private RoleModel findRole(RoleName roleName) {

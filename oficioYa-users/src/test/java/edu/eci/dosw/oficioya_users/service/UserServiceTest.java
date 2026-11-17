@@ -1,7 +1,9 @@
 package edu.eci.dosw.oficioya_users.service;
 
 import edu.eci.dosw.oficioya_users.client.WorkerClient;
+import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
+import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.dto.UserUpdateDTO;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import org.mockito.ArgumentCaptor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -460,6 +463,45 @@ class UserServiceTest {
         verify(userRepository, times(2)).save(saved.capture());
         assertThat(saved.getAllValues().get(0).getDeactivatedAt()).isAfterOrEqualTo(before);
         assertThat(saved.getAllValues().get(1).getDeactivatedAt()).isNull();
+    }
+
+    @Test
+    void accountStatsCountsRegisteredUntilEndAndDeactivatedInPeriodByRole() {
+        LocalDateTime start = LocalDate.of(2026, 11, 1).atStartOfDay();
+        LocalDateTime end = LocalDate.of(2026, 12, 1).atStartOfDay();
+        List<String> both = List.of("TRABAJADOR", "CONTRATANTE");
+        when(userRepository.countRegistered(both, end)).thenReturn(1480L);
+        when(userRepository.countRegistered(List.of("TRABAJADOR"), end)).thenReturn(620L);
+        when(userRepository.countRegistered(List.of("CONTRATANTE"), end)).thenReturn(900L);
+        when(userRepository.countDeactivated(both, start, end)).thenReturn(40L);
+        when(userRepository.countDeactivated(List.of("TRABAJADOR"), start, end)).thenReturn(15L);
+        when(userRepository.countDeactivated(List.of("CONTRATANTE"), start, end)).thenReturn(28L);
+
+        AccountStatsDTO stats = userService.getAccountStats(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30));
+
+        assertThat(stats.registered()).isEqualTo(new RoleCountDTO(1480, 620, 900));
+        assertThat(stats.deactivated()).isEqualTo(new RoleCountDTO(40, 15, 28));
+    }
+
+    @Test
+    void accountStatsOfOneDayIncludesTheWholeDay() {
+        LocalDate day = LocalDate.of(2026, 11, 16);
+
+        userService.getAccountStats(day, day);
+
+        verify(userRepository).countDeactivated(List.of("TRABAJADOR", "CONTRATANTE"),
+                day.atStartOfDay(), day.plusDays(1).atStartOfDay());
+        verify(userRepository).countRegistered(List.of("TRABAJADOR", "CONTRATANTE"), day.plusDays(1).atStartOfDay());
+    }
+
+    @Test
+    void accountStatsRequiresBothDatesInOrder() {
+        LocalDate day = LocalDate.of(2026, 11, 1);
+
+        assertStatus(() -> userService.getAccountStats(null, day), HttpStatus.BAD_REQUEST);
+        assertStatus(() -> userService.getAccountStats(day, null), HttpStatus.BAD_REQUEST);
+        assertStatus(() -> userService.getAccountStats(day.plusDays(1), day), HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
