@@ -1,9 +1,6 @@
 package edu.eci.dosw.oficioya_users.client;
 
 import edu.eci.dosw.oficioya_users.exception.ServiceUnavailableException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,10 +12,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-import javax.crypto.SecretKey;
 import java.time.Duration;
-import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,21 +26,18 @@ public class WorkerClient {
     private static final String UNAVAILABLE = "El servicio de trabajadores no está disponible. Intenta más tarde";
 
     private final RestClient restClient;
-    private final SecretKey key;
-    private final String rolesClaim;
+    private final ServiceTokenProvider tokenProvider;
 
     @Autowired
     public WorkerClient(RestClient.Builder builder,
                         @Value("${workers.url:http://localhost:8082}") String url,
-                        @Value("${jwt.secret}") String secret,
-                        @Value("${jwt.roles-claim}") String rolesClaim) {
-        this(builder.baseUrl(url).requestFactory(timeoutFactory()).build(), secret, rolesClaim);
+                        ServiceTokenProvider tokenProvider) {
+        this(builder.baseUrl(url).requestFactory(timeoutFactory()).build(), tokenProvider);
     }
 
-    WorkerClient(RestClient restClient, String secret, String rolesClaim) {
+    WorkerClient(RestClient restClient, ServiceTokenProvider tokenProvider) {
         this.restClient = restClient;
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
-        this.rolesClaim = rolesClaim;
+        this.tokenProvider = tokenProvider;
     }
 
     public Optional<String> findWorkerIdByUser(UUID userId) {
@@ -54,7 +45,7 @@ public class WorkerClient {
         try {
             worker = restClient.get()
                     .uri("/api/v1/workers/by-user/{userId}", userId)
-                    .header(HttpHeaders.AUTHORIZATION, serviceToken())
+                    .header(HttpHeaders.AUTHORIZATION, tokenProvider.bearer())
                     .retrieve()
                     .body(Map.class);
         } catch (HttpClientErrorException.NotFound exception) {
@@ -72,7 +63,7 @@ public class WorkerClient {
         try {
             restClient.put()
                     .uri("/api/v1/workers/{id}/status", workerId)
-                    .header(HttpHeaders.AUTHORIZATION, serviceToken())
+                    .header(HttpHeaders.AUTHORIZATION, tokenProvider.bearer())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("status", status))
                     .retrieve()
@@ -81,16 +72,6 @@ public class WorkerClient {
             throw unavailable(exception);
         }
         log.info("Perfil de trabajador {} cambiado a {}", workerId, status);
-    }
-
-    private String serviceToken() {
-        long now = System.currentTimeMillis();
-        return "Bearer " + Jwts.builder()
-                .subject("oficioya-users")
-                .claim(rolesClaim, List.of("SERVICE"))
-                .expiration(new Date(now + 60_000))
-                .signWith(key, Jwts.SIG.HS256)
-                .compact();
     }
 
     private static SimpleClientHttpRequestFactory timeoutFactory() {

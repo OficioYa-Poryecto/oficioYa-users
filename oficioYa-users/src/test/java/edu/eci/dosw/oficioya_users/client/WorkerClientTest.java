@@ -36,7 +36,7 @@ class WorkerClientTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://worker");
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new WorkerClient(builder.build(), SECRET, "roles");
+        client = new WorkerClient(builder.build(), new ServiceTokenProvider(SECRET, "roles"));
     }
 
     @Test

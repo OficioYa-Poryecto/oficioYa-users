@@ -1,6 +1,7 @@
 package edu.eci.dosw.oficioya_users.service;
 
 import edu.eci.dosw.oficioya_users.client.WorkerClient;
+import edu.eci.dosw.oficioya_users.client.RequestsClient;
 import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
@@ -51,6 +52,7 @@ public class UserService {
     private final UserEntityMapper userEntityMapper;
     private final UserMapper userMapper;
     private final WorkerClient workerClient;
+    private final RequestsClient requestsClient;
 
     /** RF-01 */
     public UserResponseDTO register(UserRequestDTO request) {
@@ -93,10 +95,7 @@ public class UserService {
         return userMapper.toOwn(save(user));
     }
 
-    /**
-     * RF-13. Quita TRABAJADOR o CONTRATANTE; la cuenta conserva al menos un rol.
-     * Al quitar TRABAJADOR pausa su perfil en Worker. Si Worker falla, lanza 503 y el rol no cambia.
-     */
+    /** RF-13. Quita TRABAJADOR o CONTRATANTE; la cuenta conserva al menos un rol **/
     public UserResponseDTO removeRole(UUID userId, RoleName roleName) {
         if (roleName == RoleName.ADMIN) {
             throw new BadRequestException("El rol ADMIN no se puede quitar desde la cuenta");
@@ -112,7 +111,11 @@ public class UserService {
         if (user.getRoles().size() == 1) {
             throw new ConflictException("La cuenta debe conservar al menos un rol");
         }
-        // Pendiente (Servicios): aquí va la validación de solicitudes activas antes de quitar el rol
+        long activeRequests = requestsClient.countActive(userId, roleName);
+        if (activeRequests > 0) {
+            throw new ConflictException("Tienes " + activeRequests + " solicitudes activas como " + roleName
+                    + "; finalízalas o cancélalas antes de quitar el rol");
+        }
         if (roleName == RoleName.TRABAJADOR) {
             changeWorkerStatus(userId, WorkerClient.PAUSED);
         }
