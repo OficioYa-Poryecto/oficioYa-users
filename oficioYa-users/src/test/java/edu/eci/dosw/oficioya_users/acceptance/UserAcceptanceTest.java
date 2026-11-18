@@ -159,6 +159,30 @@ class UserAcceptanceTest {
             mockMvc.perform(registerRequest("{\"name\":\"\",\"email\":\"no-es-correo\",\"phones\":[],\"roles\":[]}"))
                     .andExpect(status().isBadRequest());
         }
+
+        @Test
+        @DisplayName("Dado que soy mayor de edad, cuando me registro con mi fecha de nacimiento, entonces queda guardada en mi cuenta")
+        void registersAdultWithBirthDate() throws Exception {
+            String body = """
+                    {"name":"Sara","email":"sara.rf01@mail.com","birthDate":"1995-05-20",
+                     "phones":[{"number":"3005555555","principal":true}],"roles":["CONTRATANTE"]}""";
+
+            mockMvc.perform(registerRequest(body))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.birthDate").value("1995-05-20"));
+        }
+
+        @Test
+        @DisplayName("Dado que soy menor de edad o la fecha es futura, cuando me registro, entonces recibo 400")
+        void rejectsMinorOrFutureBirthDate() throws Exception {
+            String minor = java.time.LocalDate.now(java.time.ZoneId.of("America/Bogota")).minusYears(17).toString();
+            for (String date : new String[]{minor, "2999-01-01"}) {
+                String body = """
+                        {"name":"Leo","email":"leo.rf01@mail.com","birthDate":"%s",
+                         "phones":[{"number":"3006666666","principal":true}],"roles":["CONTRATANTE"]}""".formatted(date);
+                mockMvc.perform(registerRequest(body)).andExpect(status().isBadRequest());
+            }
+        }
     }
 
     // RF-02

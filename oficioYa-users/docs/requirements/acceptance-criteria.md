@@ -35,6 +35,12 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 | 7 | —                                                 | Me registro con más de tres teléfonos o con datos inválidos (por ejemplo, un teléfono que no es un celular de 10 dígitos que empieza por 3) | Recibo 400                                                              |
 | 8 | —                                                 | Intento registrarme sin token o con un token que no es SERVICE                                                                              | Recibo 401 o 403                                                        |
 | 9 | Un perfil creado cuyo registro falló en Identity  | Identity pide eliminarlo (`DELETE /api/v1/users/{id}`) con token SERVICE                                                                    | Recibo 204 y el perfil deja de existir; con otro rol recibo 403         |
+| 10 | Un visitante mayor de edad                       | Me registro con mi fecha de nacimiento (`birthDate`, AAAA-MM-DD)                                                                            | Recibo 201; la fecha se ve en mi perfil y en la vista del admin, no en el perfil público |
+| 11 | Un visitante que cumple 18 años hoy              | Me registro                                                                                                                                 | Recibo 201                                                              |
+| 12 | Un visitante menor de edad (le falta al menos un día para los 18) | Me registro                                                                                                                | Recibo 400 "Debes ser mayor de edad para registrarte"                   |
+| 13 | —                                                 | Me registro con fecha de nacimiento de hoy, futura o anterior a 1900                                                                       | Recibo 400                                                              |
+
+> Fase 1: mientras Identity y el front no envíen `birthDate`, el campo es opcional (si no viene, se registra sin fecha). Cuando lo envíen, pasa a obligatorio y sin fecha se recibe 400.
 
 ## RF-02 Agregar rol (`POST /api/v1/users/me/roles/{role}`)
 

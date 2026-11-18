@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -46,6 +48,9 @@ public class UserService {
 
     private static final int MAX_PHONES = 3;
     private static final int MAX_IDS = 50;
+    private static final int ADULT_AGE = 18;
+    private static final LocalDate MIN_BIRTH_DATE = LocalDate.of(1900, 1, 1);
+    private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -58,6 +63,7 @@ public class UserService {
     public UserResponseDTO register(UserRequestDTO request) {
         request.getRoles().forEach(this::checkNotAdmin);
         validatePhones(request.getPhones());
+        validateBirthDate(request.getBirthDate());
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByEmail(email)) {
             throw new ConflictException("Ya existe una cuenta con ese correo");
@@ -66,6 +72,7 @@ public class UserService {
         UserModel user = new UserModel();
         user.setName(request.getName().trim());
         user.setEmail(email);
+        user.setBirthDate(request.getBirthDate());
         user.setAccountStatus(AccountStatus.ACTIVE);
         user.setPhones(userMapper.toPhones(request.getPhones()));
         user.setRoles(request.getRoles().stream().map(this::findRole).collect(Collectors.toSet()));
@@ -337,6 +344,20 @@ public class UserService {
     private void checkNotAdmin(RoleName roleName) {
         if (roleName == RoleName.ADMIN) {
             throw new BadRequestException("El rol ADMIN no se puede asignar desde la cuenta");
+        }
+    }
+
+    /** RF-01. Opcional en fase 1; si viene, 18 años cumplidos a la fecha de hoy en Bogotá */
+    private void validateBirthDate(LocalDate birthDate) {
+        if (birthDate == null) {
+            return;
+        }
+        LocalDate today = LocalDate.now(BOGOTA);
+        if (birthDate.isBefore(MIN_BIRTH_DATE) || !birthDate.isBefore(today)) {
+            throw new BadRequestException("La fecha de nacimiento no es válida");
+        }
+        if (Period.between(birthDate, today).getYears() < ADULT_AGE) {
+            throw new BadRequestException("Debes ser mayor de edad para registrarte");
         }
     }
 
