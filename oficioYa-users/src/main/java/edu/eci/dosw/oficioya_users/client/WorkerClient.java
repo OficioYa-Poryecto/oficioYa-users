@@ -22,7 +22,6 @@ import java.util.UUID;
 public class WorkerClient {
     public static final String ACTIVE = "ACTIVE";
     public static final String PAUSED = "PAUSED";
-    private static final Duration TIMEOUT = Duration.ofSeconds(3);
     private static final String UNAVAILABLE = "El servicio de trabajadores no está disponible. Intenta más tarde";
 
     private final RestClient restClient;
@@ -30,9 +29,11 @@ public class WorkerClient {
 
     @Autowired
     public WorkerClient(RestClient.Builder builder,
-                        @Value("${workers.url:http://localhost:8082}") String url,
+                        @Value("${workers.url:http://localhost:8081}") String url,
+                        @Value("${http.client.timeout-seconds:15}") long timeoutSeconds,
                         ServiceTokenProvider tokenProvider) {
-        this(builder.baseUrl(url).requestFactory(timeoutFactory()).build(), tokenProvider);
+        this(builder.baseUrl(url).requestFactory(timeoutFactory(Duration.ofSeconds(timeoutSeconds))).build(),
+                tokenProvider);
     }
 
     WorkerClient(RestClient restClient, ServiceTokenProvider tokenProvider) {
@@ -44,8 +45,8 @@ public class WorkerClient {
         Map<?, ?> worker;
         try {
             worker = restClient.get()
-                    .uri("/api/v1/workers/by-user/{userId}", userId)
-                    .header(HttpHeaders.AUTHORIZATION, tokenProvider.bearer())
+                    .uri("/api/v1/workers/me")
+                    .header(HttpHeaders.AUTHORIZATION, tokenProvider.bearerFor(userId))
                     .retrieve()
                     .body(Map.class);
         } catch (HttpClientErrorException.NotFound exception) {
@@ -74,10 +75,10 @@ public class WorkerClient {
         log.info("Perfil de trabajador {} cambiado a {}", workerId, status);
     }
 
-    private static SimpleClientHttpRequestFactory timeoutFactory() {
+    private static SimpleClientHttpRequestFactory timeoutFactory(Duration timeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(TIMEOUT);
-        factory.setReadTimeout(TIMEOUT);
+        factory.setConnectTimeout(timeout);
+        factory.setReadTimeout(timeout);
         return factory;
     }
 
