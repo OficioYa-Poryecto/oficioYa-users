@@ -36,6 +36,7 @@ public class UserMapper {
     public UserResponseDTO toOwn(UserModel user) {
         UserResponseDTO dto = toPublic(user);
         dto.setEmail(maskEmail(user.getEmail()));
+        dto.setBirthDate(user.getBirthDate());
         dto.setPhones(user.getPhones().stream().map(p -> phoneDTO(p.getId(), maskPhone(p.getNumber()), p.isPrincipal())).toList());
         dto.setAccountStatus(user.getAccountStatus());
         dto.setCreatedAt(user.getCreatedAt());
@@ -46,6 +47,7 @@ public class UserMapper {
     public UserResponseDTO toAdmin(UserModel user) {
         UserResponseDTO dto = toPublic(user);
         dto.setEmail(user.getEmail());
+        dto.setBirthDate(user.getBirthDate());
         dto.setPhones(toPhoneDTOs(user.getPhones()));
         dto.setAccountStatus(user.getAccountStatus());
         dto.setCreatedAt(user.getCreatedAt());

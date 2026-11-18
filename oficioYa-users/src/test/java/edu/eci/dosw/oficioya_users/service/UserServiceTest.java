@@ -34,6 +34,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -138,6 +139,54 @@ class UserServiceTest {
         assertThat(result.getPhones().get(0).getNumber()).isEqualTo("******4567");
         assertThat(result.getRoles()).containsExactly("TRABAJADOR");
         assertThat(result.getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
+    }
+
+    // RF-01 fecha de nacimiento (fase 1: opcional, si viene se valida)
+
+    private static LocalDate today() {
+        return LocalDate.now(ZoneId.of("America/Bogota"));
+    }
+
+    private UserRequestDTO requestBornOn(LocalDate birthDate) {
+        UserRequestDTO request = request(RoleName.CONTRATANTE);
+        request.setBirthDate(birthDate);
+        return request;
+    }
+
+    @Test
+    void registerSavesBirthDateOfAdultAndShowsItInOwnProfile() {
+        when(roleRepository.findByName("CONTRATANTE")).thenReturn(Optional.of(role("CONTRATANTE")));
+        saveReturnsArgument();
+        LocalDate birthDate = today().minusYears(30);
+
+        UserResponseDTO result = userService.register(requestBornOn(birthDate));
+
+        assertThat(result.getBirthDate()).isEqualTo(birthDate);
+    }
+
+    @Test
+    void registerAcceptsWhoTurnsEighteenToday() {
+        when(roleRepository.findByName("CONTRATANTE")).thenReturn(Optional.of(role("CONTRATANTE")));
+        saveReturnsArgument();
+
+        UserResponseDTO result = userService.register(requestBornOn(today().minusYears(18)));
+
+        assertThat(result.getBirthDate()).isEqualTo(today().minusYears(18));
+    }
+
+    @Test
+    void registerWithoutBirthDateStillWorks() {
+        when(roleRepository.findByName("CONTRATANTE")).thenReturn(Optional.of(role("CONTRATANTE")));
+        saveReturnsArgument();
+
+        assertThat(userService.register(request(RoleName.CONTRATANTE)).getBirthDate()).isNull();
+    }
+
+    @Test
+    void registerRejectsMinorTodayFutureAndTooOldBirthDates() {
+        Stream.of(today().minusYears(18).plusDays(1), today(), today().plusDays(1), LocalDate.of(1899, 12, 31))
+                .forEach(date -> assertStatus(() -> userService.register(requestBornOn(date)), HttpStatus.BAD_REQUEST));
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -365,6 +414,7 @@ class UserServiceTest {
     void getPublicProfileHidesContactData() {
         UserEntity requester = user(AccountStatus.ACTIVE, "CONTRATANTE");
         UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR");
+        user.setBirthDate(LocalDate.of(1990, 1, 15));
         when(userRepository.findById(requester.getId())).thenReturn(Optional.of(requester));
         when(userRepository.findByIdAndAccountStatus(user.getId(), AccountStatus.ACTIVE)).thenReturn(Optional.of(user));
 
@@ -373,6 +423,7 @@ class UserServiceTest {
         assertThat(result.getName()).isEqualTo("Ana Pérez");
         assertThat(result.getEmail()).isNull();
         assertThat(result.getPhones()).isNull();
+        assertThat(result.getBirthDate()).isNull();
     }
 
     @Test

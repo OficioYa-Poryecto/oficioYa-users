@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -27,6 +28,10 @@ public class UserEntity {
 
     @Column(nullable = false, unique = true, updatable = false, length = 150)
     private String email;
+
+    /** RF-01. Nullable: las cuentas anteriores y el admin semilla no la tienen */
+    @Column(updatable = false)
+    private LocalDate birthDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
