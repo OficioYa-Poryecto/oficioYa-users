@@ -1,5 +1,6 @@
 package edu.eci.dosw.oficioya_users.mapper;
 
+import edu.eci.dosw.oficioya_users.dto.LocalityDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.model.PhoneModel;
@@ -29,6 +30,9 @@ public class UserMapper {
         dto.setId(user.getId());
         dto.setName(user.getName());
         dto.setRoles(user.getRoles().stream().map(RoleModel::getName).collect(Collectors.toSet()));
+        if (user.getLocality() != null) {
+            dto.setLocality(new LocalityDTO(user.getLocality().getId(), user.getLocality().getName()));
+        }
         return dto;
     }
 

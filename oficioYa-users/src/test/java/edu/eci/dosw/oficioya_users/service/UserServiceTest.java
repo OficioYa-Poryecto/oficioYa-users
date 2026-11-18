@@ -8,6 +8,7 @@ import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.dto.UserUpdateDTO;
+import edu.eci.dosw.oficioya_users.entity.LocalityEntity;
 import edu.eci.dosw.oficioya_users.entity.PhoneEntity;
 import edu.eci.dosw.oficioya_users.entity.RoleEntity;
 import edu.eci.dosw.oficioya_users.entity.UserEntity;
@@ -15,6 +16,7 @@ import edu.eci.dosw.oficioya_users.enums.AccountStatus;
 import edu.eci.dosw.oficioya_users.enums.RoleName;
 import edu.eci.dosw.oficioya_users.mapper.UserEntityMapperImpl;
 import edu.eci.dosw.oficioya_users.mapper.UserMapper;
+import edu.eci.dosw.oficioya_users.repository.LocalityRepository;
 import edu.eci.dosw.oficioya_users.repository.RoleRepository;
 import edu.eci.dosw.oficioya_users.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,13 +63,15 @@ class UserServiceTest {
     private WorkerClient workerClient;
     @Mock
     private RequestsClient requestsClient;
+    @Mock
+    private LocalityRepository localityRepository;
 
     private UserService userService;
     private final UUID adminId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, roleRepository, new UserEntityMapperImpl(), new UserMapper(), workerClient, requestsClient);
+        userService = new UserService(userRepository, roleRepository, new UserEntityMapperImpl(), new UserMapper(), workerClient, requestsClient, localityRepository);
     }
 
     private static RoleEntity role(String name) {
@@ -272,6 +276,52 @@ class UserServiceTest {
         saveReturnsArgument();
 
         assertThat(userService.updateOwnProfile(user.getId(), new UserUpdateDTO()).getName()).isEqualTo("Ana Pérez");
+    }
+
+    // RF-14 zona de cobertura
+
+    private static LocalityEntity locality(long id, String name) {
+        LocalityEntity locality = new LocalityEntity();
+        locality.setId(id);
+        locality.setName(name);
+        return locality;
+    }
+
+    @Test
+    void registerSavesLocalityAndShowsIt() {
+        when(roleRepository.findByName("CONTRATANTE")).thenReturn(Optional.of(role("CONTRATANTE")));
+        when(localityRepository.findById(11L)).thenReturn(Optional.of(locality(11, "Suba")));
+        saveReturnsArgument();
+        UserRequestDTO request = request(RoleName.CONTRATANTE);
+        request.setLocalityId(11L);
+
+        UserResponseDTO result = userService.register(request);
+
+        assertThat(result.getLocality().id()).isEqualTo(11L);
+        assertThat(result.getLocality().name()).isEqualTo("Suba");
+    }
+
+    @Test
+    void registerRejectsUnknownLocality() {
+        when(localityRepository.findById(99L)).thenReturn(Optional.empty());
+        UserRequestDTO request = request(RoleName.CONTRATANTE);
+        request.setLocalityId(99L);
+
+        assertStatus(() -> userService.register(request), HttpStatus.BAD_REQUEST);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void updateOwnProfileChangesLocality() {
+        UserEntity user = user(AccountStatus.ACTIVE, "TRABAJADOR");
+        user.setLocality(locality(11, "Suba"));
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(localityRepository.findById(8L)).thenReturn(Optional.of(locality(8, "Kennedy")));
+        saveReturnsArgument();
+        UserUpdateDTO request = new UserUpdateDTO();
+        request.setLocalityId(8L);
+
+        assertThat(userService.updateOwnProfile(user.getId(), request).getLocality().name()).isEqualTo("Kennedy");
     }
 
     @Test

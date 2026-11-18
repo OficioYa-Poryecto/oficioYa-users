@@ -33,7 +33,7 @@ public class UserController {
     @PostMapping("/users")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Registrar cuenta", description = "RF-01. Crea la cuenta activa con rol TRABAJADOR y/o CONTRATANTE. "
-            + "birthDate (AAAA-MM-DD) es opcional por ahora; si viene, 400 si es menor de 18 años, futura o anterior a 1900")
+            + "birthDate (AAAA-MM-DD) es opcional por ahora; si viene, 400 si es menor de 18 años, futura o anterior a 1900. localityId (zona de cobertura, RF-14) es opcional; 400 si no existe")
     public UserResponseDTO register(@Valid @RequestBody UserRequestDTO request) {
         return userService.register(request);
     }
@@ -58,7 +58,7 @@ public class UserController {
     }
 
     @PatchMapping("/users/me")
-    @Operation(summary = "Editar perfil propio", description = "RF-04. Nombre y teléfonos")
+    @Operation(summary = "Editar perfil propio", description = "RF-04. Nombre, teléfonos y zona de cobertura (localityId, RF-14)")
     public UserResponseDTO updateOwnProfile(@AuthenticationPrincipal UUID userId,
                                             @Valid @RequestBody UserUpdateDTO request) {
         return userService.updateOwnProfile(userId, request);
