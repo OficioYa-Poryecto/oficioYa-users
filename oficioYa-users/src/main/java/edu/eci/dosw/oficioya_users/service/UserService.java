@@ -16,9 +16,11 @@ import edu.eci.dosw.oficioya_users.exception.ForbiddenOperationException;
 import edu.eci.dosw.oficioya_users.exception.ResourceNotFoundException;
 import edu.eci.dosw.oficioya_users.mapper.UserEntityMapper;
 import edu.eci.dosw.oficioya_users.mapper.UserMapper;
+import edu.eci.dosw.oficioya_users.model.LocalityModel;
 import edu.eci.dosw.oficioya_users.model.PhoneModel;
 import edu.eci.dosw.oficioya_users.model.RoleModel;
 import edu.eci.dosw.oficioya_users.model.UserModel;
+import edu.eci.dosw.oficioya_users.repository.LocalityRepository;
 import edu.eci.dosw.oficioya_users.repository.RoleRepository;
 import edu.eci.dosw.oficioya_users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final WorkerClient workerClient;
     private final RequestsClient requestsClient;
+    private final LocalityRepository localityRepository;
 
     /** RF-01 */
     public UserResponseDTO register(UserRequestDTO request) {
@@ -73,6 +76,9 @@ public class UserService {
         user.setName(request.getName().trim());
         user.setEmail(email);
         user.setBirthDate(request.getBirthDate());
+        if (request.getLocalityId() != null) {
+            user.setLocality(findLocality(request.getLocalityId()));
+        }
         user.setAccountStatus(AccountStatus.ACTIVE);
         user.setPhones(userMapper.toPhones(request.getPhones()));
         user.setRoles(request.getRoles().stream().map(this::findRole).collect(Collectors.toSet()));
@@ -146,6 +152,9 @@ public class UserService {
         if (request.getPhones() != null) {
             validatePhones(request.getPhones());
             user.setPhones(userMapper.toPhones(request.getPhones()));
+        }
+        if (request.getLocalityId() != null) {
+            user.setLocality(findLocality(request.getLocalityId()));
         }
         log.info("Perfil actualizado {}", userId);
         return userMapper.toOwn(save(user));
@@ -319,6 +328,13 @@ public class UserService {
         return roleRepository.findByName(roleName.name())
                 .map(userEntityMapper::toModel)
                 .orElseThrow(() -> new IllegalStateException("Rol no configurado: " + roleName));
+    }
+
+    /** RF-14 */
+    private LocalityModel findLocality(Long localityId) {
+        return localityRepository.findById(localityId)
+                .map(userEntityMapper::toModel)
+                .orElseThrow(() -> new BadRequestException("La localidad no existe: " + localityId));
     }
 
     // Reglas de Negocio

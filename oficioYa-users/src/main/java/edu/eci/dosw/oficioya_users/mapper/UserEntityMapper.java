@@ -1,8 +1,10 @@
 package edu.eci.dosw.oficioya_users.mapper;
 
+import edu.eci.dosw.oficioya_users.entity.LocalityEntity;
 import edu.eci.dosw.oficioya_users.entity.PhoneEntity;
 import edu.eci.dosw.oficioya_users.entity.RoleEntity;
 import edu.eci.dosw.oficioya_users.entity.UserEntity;
+import edu.eci.dosw.oficioya_users.model.LocalityModel;
 import edu.eci.dosw.oficioya_users.model.PhoneModel;
 import edu.eci.dosw.oficioya_users.model.RoleModel;
 import edu.eci.dosw.oficioya_users.model.UserModel;
@@ -24,4 +26,8 @@ public interface UserEntityMapper {
     RoleModel toModel(RoleEntity entity);
 
     RoleEntity toEntity(RoleModel model);
+
+    LocalityModel toModel(LocalityEntity entity);
+
+    LocalityEntity toEntity(LocalityModel model);
 }

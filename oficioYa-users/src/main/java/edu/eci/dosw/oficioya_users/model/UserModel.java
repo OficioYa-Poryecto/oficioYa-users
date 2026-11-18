@@ -19,6 +19,7 @@ public class UserModel {
     private String name;
     private String email;
     private LocalDate birthDate;
+    private LocalityModel locality;
     private AccountStatus accountStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

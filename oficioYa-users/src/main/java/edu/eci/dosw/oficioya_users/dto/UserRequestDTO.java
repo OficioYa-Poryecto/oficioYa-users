@@ -28,6 +28,9 @@ public class UserRequestDTO {
     @Past(message = "La fecha de nacimiento debe ser anterior a hoy")
     private LocalDate birthDate;
 
+    /** RF-14. Zona de cobertura (id del catálogo de localidades); opcional */
+    private Long localityId;
+
     @NotEmpty(message = "Debe registrar al menos un teléfono")
     @Size(max = 3, message = "Se admiten máximo 3 teléfonos")
     private List<@Valid PhoneDTO> phones;

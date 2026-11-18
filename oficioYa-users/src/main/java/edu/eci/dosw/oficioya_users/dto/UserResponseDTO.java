@@ -17,6 +17,7 @@ public class UserResponseDTO {
     private String name;
     private String email;
     private LocalDate birthDate;
+    private LocalityDTO locality;
     private List<PhoneDTO> phones;
     private Set<String> roles;
     private AccountStatus accountStatus;

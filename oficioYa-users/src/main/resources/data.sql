@@ -35,3 +35,28 @@ INSERT INTO zones (id, name, locality) SELECT 25, 'Bosa Centro', 'Bosa' WHERE NO
 
 -- RF-12. Las cuentas que ya estaban inactivas antes de existir deactivated_at toman como fecha su última actualización.
 UPDATE users SET deactivated_at = updated_at WHERE account_status = 'INACTIVE' AND deactivated_at IS NULL;
+
+-- RF-01. Las cuentas creadas antes de existir birth_date (y el admin semilla) toman la fecha con la que cumplen justo 18 años hoy (hora de Bogotá).
+UPDATE users SET birth_date = CAST(CAST(now() AT TIME ZONE 'America/Bogota' AS date) - INTERVAL '18' YEAR AS date) WHERE birth_date IS NULL;
+
+-- RF-14. Catálogo de localidades de Bogotá (zona de cobertura). Ids fijos = número oficial de la localidad. Se insertan solo si no existen.
+INSERT INTO localities (id, name) SELECT 1, 'Usaquén' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 1);
+INSERT INTO localities (id, name) SELECT 2, 'Chapinero' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 2);
+INSERT INTO localities (id, name) SELECT 3, 'Santa Fe' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 3);
+INSERT INTO localities (id, name) SELECT 4, 'San Cristóbal' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 4);
+INSERT INTO localities (id, name) SELECT 5, 'Usme' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 5);
+INSERT INTO localities (id, name) SELECT 6, 'Tunjuelito' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 6);
+INSERT INTO localities (id, name) SELECT 7, 'Bosa' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 7);
+INSERT INTO localities (id, name) SELECT 8, 'Kennedy' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 8);
+INSERT INTO localities (id, name) SELECT 9, 'Fontibón' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 9);
+INSERT INTO localities (id, name) SELECT 10, 'Engativá' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 10);
+INSERT INTO localities (id, name) SELECT 11, 'Suba' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 11);
+INSERT INTO localities (id, name) SELECT 12, 'Barrios Unidos' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 12);
+INSERT INTO localities (id, name) SELECT 13, 'Teusaquillo' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 13);
+INSERT INTO localities (id, name) SELECT 14, 'Los Mártires' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 14);
+INSERT INTO localities (id, name) SELECT 15, 'Antonio Nariño' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 15);
+INSERT INTO localities (id, name) SELECT 16, 'Puente Aranda' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 16);
+INSERT INTO localities (id, name) SELECT 17, 'La Candelaria' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 17);
+INSERT INTO localities (id, name) SELECT 18, 'Rafael Uribe Uribe' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 18);
+INSERT INTO localities (id, name) SELECT 19, 'Ciudad Bolívar' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 19);
+INSERT INTO localities (id, name) SELECT 20, 'Sumapaz' WHERE NOT EXISTS (SELECT 1 FROM localities WHERE id = 20);
