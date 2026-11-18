@@ -33,6 +33,11 @@ public class UserEntity {
     @Column(updatable = false)
     private LocalDate birthDate;
 
+    /** RF-14. Zona de cobertura; opcional */
+    @ManyToOne
+    @JoinColumn(name = "locality_id")
+    private LocalityEntity locality;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AccountStatus accountStatus;
