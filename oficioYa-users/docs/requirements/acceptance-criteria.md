@@ -13,7 +13,7 @@ mvn test -Dtest=UserAcceptanceTest
 ## Evidencias
 
 Además de las pruebas automatizadas, la [colección de Postman](../oficioya-users.postman_collection.json) recorre los mismos
-requerimientos con 40 peticiones, incluidos los endpoints de teléfonos, los que usa Identity (rol `SERVICE`) y el catálogo de zonas.
+requerimientos con 40 peticiones, incluidos los endpoints de teléfonos, los que usa el Orquestador (rol `SERVICE`) y el catálogo de zonas.
 Ejecutada completa (*Run collection*), pasan las 87 pruebas:
 
 ![Ejecución de la colección de Postman](../evidencias/postman-run.png)
@@ -24,21 +24,21 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 
 ## RF-01 Registrar cuenta (`POST /api/v1/users`)
 
-| # | Dado                                              | Cuando                                                                                                                                      | Entonces                                                                |
-|---|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| 1 | Un correo que no está registrado                  | Me registro con nombre, un teléfono principal y el rol CONTRATANTE                                                                          | Recibo 201 y la cuenta queda Activa con ese rol y el correo enmascarado |
-| 2 | Un correo que no está registrado                  | Me registro como TRABAJADOR y CONTRATANTE                                                                                                   | La cuenta tiene ambos roles                                             |
-| 3 | Un correo que no está registrado                  | Me registro solo como TRABAJADOR                                                                                                            | La cuenta tiene únicamente ese rol                                      |
-| 4 | Un correo ya registrado (sin importar mayúsculas) | Intento registrarme con él                                                                                                                  | Recibo 409                                                              |
-| 5 | —                                                 | Intento registrarme con el rol ADMIN                                                                                                        | Recibo 400                                                              |
-| 6 | —                                                 | Me registro con dos teléfonos principales                                                                                                   | Recibo 400                                                              |
-| 7 | —                                                 | Me registro con más de tres teléfonos o con datos inválidos (por ejemplo, un teléfono que no es un celular de 10 dígitos que empieza por 3) | Recibo 400                                                              |
-| 8 | —                                                 | Intento registrarme sin token o con un token que no es SERVICE                                                                              | Recibo 401 o 403                                                        |
-| 9 | Un perfil creado cuyo registro falló en Identity  | Identity pide eliminarlo (`DELETE /api/v1/users/{id}`) con token SERVICE                                                                    | Recibo 204 y el perfil deja de existir; con otro rol recibo 403         |
-| 10 | Un visitante mayor de edad                       | Me registro con mi fecha de nacimiento (`birthDate`, AAAA-MM-DD)                                                                            | Recibo 201; la fecha se ve en mi perfil y en la vista del admin, no en el perfil público |
-| 11 | Un visitante que cumple 18 años hoy              | Me registro                                                                                                                                 | Recibo 201                                                              |
-| 12 | Un visitante menor de edad (le falta al menos un día para los 18) | Me registro                                                                                                                | Recibo 400 "Debes ser mayor de edad para registrarte"                   |
-| 13 | —                                                 | Me registro con fecha de nacimiento de hoy, futura o anterior a 1900                                                                       | Recibo 400                                                              |
+| #  | Dado                                                              | Cuando                                                                                                                                      | Entonces                                                                                 |
+|----|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| 1  | Un correo que no está registrado                                  | Me registro con nombre, un teléfono principal y el rol CONTRATANTE                                                                          | Recibo 201 y la cuenta queda Activa con ese rol y el correo enmascarado                  |
+| 2  | Un correo que no está registrado                                  | Me registro como TRABAJADOR y CONTRATANTE                                                                                                   | La cuenta tiene ambos roles                                                              |
+| 3  | Un correo que no está registrado                                  | Me registro solo como TRABAJADOR                                                                                                            | La cuenta tiene únicamente ese rol                                                       |
+| 4  | Un correo ya registrado (sin importar mayúsculas)                 | Intento registrarme con él                                                                                                                  | Recibo 409                                                                               |
+| 5  | —                                                                 | Intento registrarme con el rol ADMIN                                                                                                        | Recibo 400                                                                               |
+| 6  | —                                                                 | Me registro con dos teléfonos principales                                                                                                   | Recibo 400                                                                               |
+| 7  | —                                                                 | Me registro con más de tres teléfonos o con datos inválidos (por ejemplo, un teléfono que no es un celular de 10 dígitos que empieza por 3) | Recibo 400                                                                               |
+| 8  | —                                                                 | Intento registrarme sin token o con un token que no es SERVICE                                                                              | Recibo 401 o 403                                                                         |
+| 9  | Un perfil creado cuyo registro falló en Identity                  | El Orquestador pide eliminarlo con token SERVICE                                                                                            | Recibo 204 y el perfil deja de existir; con otro rol recibo 403                          |
+| 10 | Un visitante mayor de edad                                        | Me registro con mi fecha de nacimiento (`birthDate`, AAAA-MM-DD)                                                                            | Recibo 201; la fecha se ve en mi perfil y en la vista del admin, no en el perfil público |
+| 11 | Un visitante que cumple 18 años hoy                               | Me registro                                                                                                                                 | Recibo 201                                                                               |
+| 12 | Un visitante menor de edad (le falta al menos un día para los 18) | Me registro                                                                                                                                 | Recibo 400 "Debes ser mayor de edad para registrarte"                                    |
+| 13 | —                                                                 | Me registro con fecha de nacimiento de hoy, futura o anterior a 1900                                                                        | Recibo 400                                                                               |
 
 > Fase 1: mientras Identity y el front no envíen `birthDate`, el campo es opcional (si no viene, se registra sin fecha). Cuando lo envíen, pasa a obligatorio y sin fecha se recibe 400.
 
@@ -53,7 +53,7 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 | 5 | El administrador                                                   | Intenta agregarse un rol           | Recibe 403                                                                                                   |
 | 6 | Un contratante que antes fue trabajador (perfil pausado en Worker) | Vuelve a agregar el rol TRABAJADOR | Su cuenta tiene ambos roles y su perfil en Worker queda `ACTIVE`                                             |
 | 7 | Un contratante sin perfil en Worker                                | Agrega el rol TRABAJADOR           | Su cuenta tiene ambos roles; no se llama a Worker para cambiar estado y el front lo lleva a `/worker/create` |
-| 8 | Worker no responde                                                 | Agrega el rol TRABAJADOR           | Recibe 503 y el rol no se agrega                                                                             |
+| 8 | Los microservicios Workers u Orquestador no responden               | Agrega el rol TRABAJADOR           | Recibe 503 y el rol no se agrega                                                                             |
 
 ## RF-03 Consultar perfil propio (`GET /api/v1/users/me`)
 
@@ -141,11 +141,11 @@ y [`UserControllerTest`](../../src/test/java/edu/eci/dosw/oficioya_users/control
 
 ## RF-11 Consultar la cuenta de un usuario (`GET /api/v1/users/by-email?email=…` y `GET /api/v1/users/{id}/account`)
 
-| # | Dado                                      | Cuando                                                                                             | Entonces                                                                  |
-|---|-------------------------------------------|----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| 1 | Una cuenta registrada (Activa o Inactiva) | Identity la consulta por correo (sin importar mayúsculas ni espacios) o por id con token `SERVICE` | Recibe sus datos completos: id, nombre, correo, teléfonos, roles y estado |
-| 2 | Un correo o id que no existe              | Lo consulta                                                                                        | Recibe 404                                                                |
-| 3 | —                                         | Consulta con un token que no es `SERVICE` o sin token                                              | Recibe 403 o 401                                                          |
+| # | Dado                                      | Cuando                                                                                                                    | Entonces                                                                  |
+|---|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| 1 | Una cuenta registrada (Activa o Inactiva) | El Orquestador llama a Identity la consulta por correo (sin importar mayúsculas ni espacios) o por id con token `SERVICE` | Recibe sus datos completos: id, nombre, correo, teléfonos, roles y estado |
+| 2 | Un correo o id que no existe              | Lo consulta                                                                                                               | Recibe 404                                                                |
+| 3 | —                                         | Consulta con un token que no es `SERVICE` o sin token                                                                     | Recibe 403 o 401                                                          |
 
 Automatizado en `UserServiceTest`, `UserControllerTest` y `UserRepositoryTest`.
 
@@ -173,9 +173,10 @@ Automatizado en `UserServiceTest`, `UserControllerTest`, `UserRepositoryTest` y 
 | 5  | Un usuario sin el rol                                                                            | Intenta quitarlo            | Recibe 409                                                                                 |
 | 6  | Un usuario activo                                                                                | Intenta quitar el rol ADMIN | Recibe 400                                                                                 |
 | 7  | El administrador                                                                                 | Intenta quitarse un rol     | Recibe 403                                                                                 |
-| 8  | Worker no responde o falla                                                                       | Quita el rol TRABAJADOR     | Recibe 503 y conserva sus roles                                                            |
+| 8  | El microservicio Workers u Orquestador no responden o fallan                                     | Quita el rol TRABAJADOR     | Recibe 503 y conserva sus roles                                                            |
 | 9  | Un usuario con ambos roles y solicitudes activas (`PENDING`, `ACCEPTED` o `CONFLICT`) en ese rol | Intenta quitarlo            | Recibe 409 con el número de solicitudes activas; conserva sus roles y no se llama a Worker |
-| 10 | Servicios no responde o falla                                                                    | Quita un rol                | Recibe 503 y conserva sus roles; no se llama a Worker                                      |
+| 10 | El microservicio Servicios u Orquestador no responden o fallan                                   | Quita un rol                | Recibe 503 y conserva sus roles; no se llama a Worker                                      |
 
 El token sigue trayendo el rol anterior hasta el próximo login; el front vuelve a iniciar sesión o refresca el token.
 Automatizado en `UserServiceTest`, `WorkerClientTest` y `RequestsClientTest` (Worker y Servicios simulado).
+El token con el que se consulta el perfil en Worker (`GET /api/v1/workers/me`) lleva como `sub` el id del usuario; verificado en `WorkerClientTest`.

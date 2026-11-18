@@ -19,7 +19,6 @@ import java.util.UUID;
 @Slf4j
 @Component
 public class RequestsClient {
-    private static final Duration TIMEOUT = Duration.ofSeconds(3);
     private static final String UNAVAILABLE = "El servicio de solicitudes no está disponible. Intenta más tarde";
 
     private final RestClient restClient;
@@ -27,9 +26,11 @@ public class RequestsClient {
 
     @Autowired
     public RequestsClient(RestClient.Builder builder,
-                          @Value("${requests.url:http://localhost:8083}") String url,
-                          ServiceTokenProvider tokenProvider) {
-        this(builder.baseUrl(url).requestFactory(timeoutFactory()).build(), tokenProvider);
+                        @Value("${workers.url:http://localhost:8081}") String url,
+                        @Value("${http.client.timeout-seconds:15}") long timeoutSeconds,
+                        ServiceTokenProvider tokenProvider) {
+        this(builder.baseUrl(url).requestFactory(timeoutFactory(Duration.ofSeconds(timeoutSeconds))).build(),
+                tokenProvider);
     }
 
     RequestsClient(RestClient restClient, ServiceTokenProvider tokenProvider) {
@@ -62,10 +63,10 @@ public class RequestsClient {
         return body.active();
     }
 
-    private static SimpleClientHttpRequestFactory timeoutFactory() {
+    private static SimpleClientHttpRequestFactory timeoutFactory(Duration timeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(TIMEOUT);
-        factory.setReadTimeout(TIMEOUT);
+        factory.setConnectTimeout(timeout);
+        factory.setReadTimeout(timeout);
         return factory;
     }
 }
