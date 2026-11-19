@@ -139,7 +139,7 @@ class UserAcceptanceTest {
         @DisplayName("Cuando me registro con dos teléfonos principales, entonces recibo 400")
         void rejectsTwoPrincipalPhones() throws Exception {
             String body = """
-                    {"name":"Juan","email":"juan.rf01@mail.com",
+                    {"name":"Juan","email":"juan.rf01@mail.com","birthDate":"1995-05-20",
                      "phones":[{"number":"3001111111","principal":true},{"number":"3002222222","principal":true}],
                      "roles":["TRABAJADOR"]}""";
 
@@ -150,7 +150,7 @@ class UserAcceptanceTest {
         @DisplayName("Cuando me registro con más de tres teléfonos o datos inválidos, entonces recibo 400")
         void rejectsInvalidData() throws Exception {
             String tooManyPhones = """
-                    {"name":"Juan","email":"juan2.rf01@mail.com",
+                    {"name":"Juan","email":"juan2.rf01@mail.com","birthDate":"1995-05-20",
                      "phones":[{"number":"3001111111","principal":true},{"number":"3002222222","principal":false},
                                {"number":"3003333333","principal":false},{"number":"3004444444","principal":false}],
                      "roles":["TRABAJADOR"]}""";
@@ -170,6 +170,16 @@ class UserAcceptanceTest {
             mockMvc.perform(registerRequest(body))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.birthDate").value("1995-05-20"));
+        }
+
+        @Test
+        @DisplayName("Cuando me registro sin fecha de nacimiento, entonces recibo 400")
+        void rejectsMissingBirthDate() throws Exception {
+            String body = """
+                    {"name":"Leo","email":"sinfecha.rf01@mail.com",
+                     "phones":[{"number":"3007777777","principal":true}],"roles":["CONTRATANTE"]}""";
+
+            mockMvc.perform(registerRequest(body)).andExpect(status().isBadRequest());
         }
 
         @Test
@@ -626,7 +636,7 @@ class UserAcceptanceTest {
     private static String registerBody(String name, String email, String... roles) {
         String roleList = String.join("\",\"", roles);
         return """
-                {"name":"%s","email":"%s","phones":[{"number":"3001234567","principal":true}],"roles":["%s"]}"""
+                {"name":"%s","email":"%s","birthDate":"1995-05-20","phones":[{"number":"3001234567","principal":true}],"roles":["%s"]}"""
                 .formatted(name, email, roleList);
     }
 

@@ -39,9 +39,7 @@ Documentación de los endpoints en Swagger (`/swagger-ui.html`):
 | 11 | Un visitante que cumple 18 años hoy                               | Me registro                                                                                                                                 | Recibo 201                                                                                         |
 | 12 | Un visitante menor de edad (le falta al menos un día para los 18) | Me registro                                                                                                                                 | Recibo 400 "Debes ser mayor de edad para registrarte"                                              |
 | 13 | —                                                                 | Me registro con fecha de nacimiento de hoy, futura o anterior a 1900                                                                        | Recibo 400                                                                                         |
-
-> Fase 1: mientras Identity y el front no envíen `birthDate`, el campo es opcional (si no viene, se registra sin fecha). Cuando lo envíen, pasa a obligatorio y sin fecha se recibe 400.
-
+| 14 | —                                                                 | Me registro sin fecha de nacimiento                                                                                                         | Recibo 400 "La fecha de nacimiento es obligatoria"                                                 |
 ## RF-02 Agregar rol (`POST /api/v1/users/me/roles/{role}`)
 
 | # | Dado                                                               | Cuando                             | Entonces                                                                                                     |

@@ -363,10 +363,10 @@ public class UserService {
         }
     }
 
-    /** RF-01. Opcional en fase 1; si viene, 18 años cumplidos a la fecha de hoy en Bogotá */
+    /** RF-01. 18 años cumplidos a la fecha de hoy en Bogotá */
     private void validateBirthDate(LocalDate birthDate) {
         if (birthDate == null) {
-            return;
+            throw new BadRequestException("La fecha de nacimiento es obligatoria");
         }
         LocalDate today = LocalDate.now(BOGOTA);
         if (birthDate.isBefore(MIN_BIRTH_DATE) || !birthDate.isBefore(today)) {
