@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -24,7 +25,8 @@ public class UserRequestDTO {
     @Size(max = 150, message = "El correo admite máximo 150 caracteres")
     private String email;
 
-    /** Opcional mientras Identity la envía (fase 1); si viene, debe ser mayor de edad */
+    /** RF-01. Obligatoria; el servicio valida que sea mayor de edad */
+    @NotNull(message = "La fecha de nacimiento es obligatoria")
     @Past(message = "La fecha de nacimiento debe ser anterior a hoy")
     private LocalDate birthDate;
 

@@ -118,6 +118,7 @@ class UserServiceTest {
         request.setEmail("Ana@Mail.com");
         request.setPhones(new ArrayList<>(List.of(phoneDTO("3001234567", true))));
         request.setRoles(Set.of(roles));
+        request.setBirthDate(LocalDate.of(1995, 5, 20));
         return request;
     }
 
@@ -179,11 +180,9 @@ class UserServiceTest {
     }
 
     @Test
-    void registerWithoutBirthDateStillWorks() {
-        when(roleRepository.findByName("CONTRATANTE")).thenReturn(Optional.of(role("CONTRATANTE")));
-        saveReturnsArgument();
-
-        assertThat(userService.register(request(RoleName.CONTRATANTE)).getBirthDate()).isNull();
+    void registerRequiresBirthDate() {
+        assertStatus(() -> userService.register(requestBornOn(null)), HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
