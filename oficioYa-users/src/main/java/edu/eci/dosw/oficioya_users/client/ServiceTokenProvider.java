@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +16,10 @@ import java.util.UUID;
 public class ServiceTokenProvider {
 
     private static final long EXPIRATION_MS = 60_000;
+
+    // sub en UUID que pide Workers
+    private static final String SERVICE_SUBJECT =
+            UUID.nameUUIDFromBytes("oficioya-users".getBytes(StandardCharsets.UTF_8)).toString();
 
     private final SecretKey key;
     private final String rolesClaim;
@@ -27,18 +32,9 @@ public class ServiceTokenProvider {
 
     /* Token SERVICE propio del microservicio de Usuarios */
     public String bearer() {
-        return build("oficioya-users");
-    }
-
-    /* Token SERVICE para conseguir el usuario del microservicio de Worker tomando el usuario del sub */
-    public String bearerFor(UUID userId) {
-        return build(userId.toString());
-    }
-
-    private String build(String subject) {
         long now = System.currentTimeMillis();
         return "Bearer " + Jwts.builder()
-                .subject(subject)
+                .subject(SERVICE_SUBJECT)
                 .claim(rolesClaim, List.of("SERVICE"))
                 .expiration(new Date(now + EXPIRATION_MS))
                 .signWith(key, Jwts.SIG.HS256)

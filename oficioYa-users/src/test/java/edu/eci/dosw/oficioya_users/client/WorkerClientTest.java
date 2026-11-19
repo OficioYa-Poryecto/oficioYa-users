@@ -12,12 +12,6 @@ import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
-
-import javax.crypto.SecretKey;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,7 +26,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class WorkerClientTest {
 
     private static final String SECRET = "IadhiSp/AVyloXuE15l29oZzpucys4NEfqpHn6PEMeQ=";
-    private static final String ME = "http://worker/api/v1/workers/me";
+    private static final String BY_USER = "http://worker/api/v1/workers/by-user/";
 
     private final UUID userId = UUID.randomUUID();
     private MockRestServiceServer server;
@@ -47,7 +41,7 @@ class WorkerClientTest {
 
     @Test
     void findWorkerIdByUserReturnsIdUsingServiceToken() {
-        server.expect(requestTo(ME))
+        server.expect(requestTo(BY_USER + userId))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, startsWith("Bearer ")))
                 .andRespond(withSuccess("{\"id\":\"w-1\"}", MediaType.APPLICATION_JSON));
 
@@ -56,14 +50,14 @@ class WorkerClientTest {
 
     @Test
     void findWorkerIdByUserReturnsEmptyOn404() {
-        server.expect(requestTo(ME)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+        server.expect(requestTo(BY_USER + userId)).andRespond(withStatus(HttpStatus.NOT_FOUND));
 
         assertThat(client.findWorkerIdByUser(userId)).isEmpty();
     }
 
     @Test
     void findWorkerIdByUserThrows503WhenWorkerFails() {
-        server.expect(requestTo(ME)).andRespond(withServerError());
+        server.expect(requestTo(BY_USER + userId)).andRespond(withServerError());
 
         assertThrows(ServiceUnavailableException.class, () -> client.findWorkerIdByUser(userId));
     }
@@ -77,14 +71,5 @@ class WorkerClientTest {
 
         client.updateStatus("w-1", WorkerClient.PAUSED);
         server.verify();
-    }
-
-    // Método auxiliar que toma el JWT del cliente y devuelva el sub (usuario dentro del token)
-    // y verifica que el header no empiece por Bearer
-    private static String subjectOf(String bearer) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
-        return Jwts.parser().verifyWith(key).build()
-                .parseSignedClaims(bearer.substring("Bearer ".length()))
-                .getPayload().getSubject();
     }
 }
