@@ -29,9 +29,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/{id}").hasRole("SERVICE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/by-email").hasRole("SERVICE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}/account").hasRole("SERVICE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/stats/**").hasRole("ADMIN")
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/zones").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/localities").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception

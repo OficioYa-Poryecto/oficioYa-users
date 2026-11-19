@@ -22,7 +22,9 @@
                   "pm.test('Responde 201', () => pm.response.to.have.status(201));",
                   "const res = pm.response.json();",
                   "pm.collectionVariables.set('userId', res.id);",
-                  "pm.test('Correo enmascarado', () => pm.expect(res.email).to.match(/^\\*{5}@/));"
+                  "pm.test('Correo enmascarado', () => pm.expect(res.email).to.match(/^\\*{5}@/));",
+                  "pm.test('Guarda la fecha de nacimiento (RF-01)', () => pm.expect(res.birthDate).to.eql('1995-05-20'));",
+                  "pm.test('Guarda la zona de cobertura (RF-14)', () => pm.expect(res.locality).to.eql({ id: 1, name: 'Usaquén' }));"
                 ]
               }
             },
@@ -50,7 +52,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"{{email}}\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
+              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"{{email}}\",\n  \"birthDate\": \"1995-05-20\",\n  \"localityId\": 1,\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -98,7 +100,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"{{email}}\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
+              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"{{email}}\",\n  \"birthDate\": \"1995-05-20\",\n  \"localityId\": 1,\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -168,6 +170,116 @@
           "response": []
         },
         {
+          "name": "3.1 Error: menor de edad",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje de mayoría de edad', () => pm.expect(pm.response.json().message).to.eql('Debes ser mayor de edad para registrarte'));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Fecha de alguien que cumple 17 años hoy",
+                  "const date = new Date();",
+                  "date.setFullYear(date.getFullYear() - 17);",
+                  "pm.collectionVariables.set('minorBirthDate', date.toISOString().slice(0, 10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{serviceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Menor Pérez\",\n  \"email\": \"menor{{$timestamp}}@mail.com\",\n  \"birthDate\": \"{{minorBirthDate}}\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Error: localidad que no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje de localidad', () => pm.expect(pm.response.json().message).to.eql('La localidad no existe: 999'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{serviceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"sinlocalidad{{$timestamp}}@mail.com\",\n  \"birthDate\": \"1995-05-20\",\n  \"localityId\": 999,\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "4. Error: registrarse como ADMIN",
           "event": [
             {
@@ -194,7 +306,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"admin{{$timestamp}}@mail.com\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"ADMIN\"\n  ]\n}",
+              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"admin{{$timestamp}}@mail.com\",\n  \"birthDate\": \"1995-05-20\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"ADMIN\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -242,7 +354,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"sinservicio{{$timestamp}}@mail.com\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
+              "raw": "{\n  \"name\": \"Ana Pérez\",\n  \"email\": \"sinservicio{{$timestamp}}@mail.com\",\n  \"birthDate\": \"1995-05-20\",\n  \"phones\": [\n    {\n      \"number\": \"3001234567\",\n      \"principal\": true\n    }\n  ],\n  \"roles\": [\n    \"TRABAJADOR\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1292,6 +1404,373 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "15.9 Error: quitar rol ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/roles/ADMIN",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "roles",
+                "ADMIN"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.10 Quitar rol CONTRATANTE (consulta Solicitudes, no llama a Worker)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Roles actualizados', () => pm.expect(pm.response.json().roles).to.have.members([\"TRABAJADOR\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/roles/CONTRATANTE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "roles",
+                "CONTRATANTE"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.11 Error: quitar el último rol",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/roles/TRABAJADOR",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "roles",
+                "TRABAJADOR"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Localidades (zona de cobertura)",
+      "item": [
+        {
+          "name": "15.12 Consultar localidades (sin token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Las 20 localidades de Bogotá en orden', () => {",
+                  "    pm.expect(res).to.have.lengthOf(20);",
+                  "    pm.expect(res[0]).to.eql({ id: 1, name: 'Usaquén' });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/localities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "localities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.13 Trabajadores de la localidad 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Incluye al usuario registrado en Usaquén', () => pm.expect(pm.response.json()).to.include(pm.collectionVariables.get('userId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/localities/1/workers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "localities",
+                "1",
+                "workers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.14 Cambiar zona de cobertura",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Queda en Chapinero', () => pm.expect(pm.response.json().locality).to.eql({ id: 2, name: 'Chapinero' }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"localityId\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.15 Trabajadores de la nueva localidad",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Ahora aparece en Chapinero', () => pm.expect(pm.response.json()).to.include(pm.collectionVariables.get('userId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/localities/2/workers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "localities",
+                "2",
+                "workers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.16 Error: editar con localidad que no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"localityId\": 999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15.17 Error: trabajadores de una localidad que no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/localities/999/workers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "localities",
+                "999",
+                "workers"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -1749,6 +2228,156 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Estadísticas (Reporting)",
+      "item": [
+        {
+          "name": "27. Admin consulta estadísticas de cuentas (Reporting)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Trae registradas y desactivadas por rol', () => ['registered', 'deactivated'].forEach(g => pm.expect(res[g]).to.have.all.keys('total', 'trabajador', 'contratante')));",
+                  "pm.test('El total no supera la suma de los roles', () => pm.expect(res.registered.total).to.be.at.most(res.registered.trabajador + res.registered.contratante));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/stats/accounts?from=2020-01-01&to=2099-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "stats",
+                "accounts"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2020-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2099-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "28. Error: estadísticas sin rol ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/stats/accounts?from=2026-11-01&to=2026-11-30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "stats",
+                "accounts"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-11-30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "29. Error: fecha de inicio posterior a la de fin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Explica el error', () => pm.expect(pm.response.json().message).to.include('posterior'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/stats/accounts?from=2026-11-30&to=2026-11-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "stats",
+                "accounts"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-30"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-11-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [
@@ -1829,6 +2458,10 @@
     },
     {
       "key": "additionalPhoneId",
+      "value": ""
+    },
+    {
+      "key": "minorBirthDate",
       "value": ""
     }
   ]

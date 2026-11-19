@@ -1,6 +1,10 @@
 package edu.eci.dosw.oficioya_users.service;
 
+import edu.eci.dosw.oficioya_users.client.WorkerClient;
+import edu.eci.dosw.oficioya_users.client.RequestsClient;
+import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
+import edu.eci.dosw.oficioya_users.dto.RoleCountDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.dto.UserUpdateDTO;
@@ -12,9 +16,11 @@ import edu.eci.dosw.oficioya_users.exception.ForbiddenOperationException;
 import edu.eci.dosw.oficioya_users.exception.ResourceNotFoundException;
 import edu.eci.dosw.oficioya_users.mapper.UserEntityMapper;
 import edu.eci.dosw.oficioya_users.mapper.UserMapper;
+import edu.eci.dosw.oficioya_users.model.LocalityModel;
 import edu.eci.dosw.oficioya_users.model.PhoneModel;
 import edu.eci.dosw.oficioya_users.model.RoleModel;
 import edu.eci.dosw.oficioya_users.model.UserModel;
+import edu.eci.dosw.oficioya_users.repository.LocalityRepository;
 import edu.eci.dosw.oficioya_users.repository.RoleRepository;
 import edu.eci.dosw.oficioya_users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +28,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -38,16 +50,23 @@ public class UserService {
 
     private static final int MAX_PHONES = 3;
     private static final int MAX_IDS = 50;
+    private static final int ADULT_AGE = 18;
+    private static final LocalDate MIN_BIRTH_DATE = LocalDate.of(1900, 1, 1);
+    private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserEntityMapper userEntityMapper;
     private final UserMapper userMapper;
+    private final WorkerClient workerClient;
+    private final RequestsClient requestsClient;
+    private final LocalityRepository localityRepository;
 
     /** RF-01 */
     public UserResponseDTO register(UserRequestDTO request) {
         request.getRoles().forEach(this::checkNotAdmin);
         validatePhones(request.getPhones());
+        validateBirthDate(request.getBirthDate());
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByEmail(email)) {
             throw new ConflictException("Ya existe una cuenta con ese correo");
@@ -56,6 +75,10 @@ public class UserService {
         UserModel user = new UserModel();
         user.setName(request.getName().trim());
         user.setEmail(email);
+        user.setBirthDate(request.getBirthDate());
+        if (request.getLocalityId() != null) {
+            user.setLocality(findLocality(request.getLocalityId()));
+        }
         user.setAccountStatus(AccountStatus.ACTIVE);
         user.setPhones(userMapper.toPhones(request.getPhones()));
         user.setRoles(request.getRoles().stream().map(this::findRole).collect(Collectors.toSet()));
@@ -65,20 +88,52 @@ public class UserService {
         return userMapper.toOwn(saved);
     }
 
-    /** RF-02 */
+    /** RF-02. Al agregar TRABAJADOR reactiva su perfil en Worker si ya existía */
     public UserResponseDTO addRole(UUID userId, RoleName roleName) {
         checkNotAdmin(roleName);
         UserModel user = getActiveUser(userId);
 
-        if (user.getRoles().stream().anyMatch(role -> role.getName().equals(RoleName.ADMIN.name()))) {
+        if (hasRole(user, RoleName.ADMIN)) {
             throw new ForbiddenOperationException("El administrador no puede agregarse roles");
         }
 
-        if (user.getRoles().stream().anyMatch(role -> role.getName().equals(roleName.name()))) {
+        if (hasRole(user, roleName)) {
             throw new ConflictException("La cuenta ya tiene el rol " + roleName);
+        }
+        if (roleName == RoleName.TRABAJADOR) {
+            changeWorkerStatus(userId, WorkerClient.ACTIVE);
         }
         user.getRoles().add(findRole(roleName));
         log.info("Rol {} agregado a la cuenta {}", roleName, userId);
+        return userMapper.toOwn(save(user));
+    }
+
+    /** RF-13. Quita TRABAJADOR o CONTRATANTE; la cuenta conserva al menos un rol **/
+    public UserResponseDTO removeRole(UUID userId, RoleName roleName) {
+        if (roleName == RoleName.ADMIN) {
+            throw new BadRequestException("El rol ADMIN no se puede quitar desde la cuenta");
+        }
+        UserModel user = getActiveUser(userId);
+
+        if (hasRole(user, RoleName.ADMIN)) {
+            throw new ForbiddenOperationException("El administrador no puede quitarse roles");
+        }
+        if (!hasRole(user, roleName)) {
+            throw new ConflictException("La cuenta no tiene el rol " + roleName);
+        }
+        if (user.getRoles().size() == 1) {
+            throw new ConflictException("La cuenta debe conservar al menos un rol");
+        }
+        long activeRequests = requestsClient.countActive(userId, roleName);
+        if (activeRequests > 0) {
+            throw new ConflictException("Tienes " + activeRequests + " solicitudes activas como " + roleName
+                    + "; finalízalas o cancélalas antes de quitar el rol");
+        }
+        if (roleName == RoleName.TRABAJADOR) {
+            changeWorkerStatus(userId, WorkerClient.PAUSED);
+        }
+        user.getRoles().removeIf(role -> role.getName().equals(roleName.name()));
+        log.info("Rol {} quitado de la cuenta {}", roleName, userId);
         return userMapper.toOwn(save(user));
     }
 
@@ -97,6 +152,9 @@ public class UserService {
         if (request.getPhones() != null) {
             validatePhones(request.getPhones());
             user.setPhones(userMapper.toPhones(request.getPhones()));
+        }
+        if (request.getLocalityId() != null) {
+            user.setLocality(findLocality(request.getLocalityId()));
         }
         log.info("Perfil actualizado {}", userId);
         return userMapper.toOwn(save(user));
@@ -206,8 +264,31 @@ public class UserService {
             throw new ConflictException("La cuenta ya está en estado " + status);
         }
         user.setAccountStatus(status);
+        user.setDeactivatedAt(status == AccountStatus.INACTIVE ? LocalDateTime.now() : null);
         log.info("Admin {} cambió la cuenta {} a {}. Motivo: {}", adminId, userId, status, reason);
         return userMapper.toAdmin(save(user));
+    }
+
+    /**
+     * RF-12. Para Reporting: cuentas registradas (activas o no) y cuentas desactivadas entre.
+     * Los administradores no cuentan porque no tienen rol de cuenta
+     */
+    public AccountStatsDTO getAccountStats(LocalDate from, LocalDate to) {
+        if (from == null || to == null) {
+            throw new BadRequestException("Las fechas from y to son obligatorias (formato AAAA-MM-DD)");
+        }
+        if (from.isAfter(to)) {
+            throw new BadRequestException("La fecha from no puede ser posterior a to");
+        }
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = to.plusDays(1).atStartOfDay();
+
+        AccountStatsDTO stats = new AccountStatsDTO(
+                countByRole(roles -> userRepository.countRegistered(roles, end)),
+                countByRole(roles -> userRepository.countDeactivated(roles, start, end)));
+        log.info("Estadísticas de cuentas del {} al {}: {} registradas, {} desactivadas",
+                from, to, stats.registered().total(), stats.deactivated().total());
+        return stats;
     }
 
     public void deleteById(UUID id) {
@@ -236,10 +317,24 @@ public class UserService {
         return saved;
     }
 
+    private static RoleCountDTO countByRole(ToLongFunction<Collection<String>> counter) {
+        String worker = RoleName.TRABAJADOR.name();
+        String contractor = RoleName.CONTRATANTE.name();
+        return new RoleCountDTO(counter.applyAsLong(List.of(worker, contractor)),
+                counter.applyAsLong(List.of(worker)), counter.applyAsLong(List.of(contractor)));
+    }
+
     private RoleModel findRole(RoleName roleName) {
         return roleRepository.findByName(roleName.name())
                 .map(userEntityMapper::toModel)
                 .orElseThrow(() -> new IllegalStateException("Rol no configurado: " + roleName));
+    }
+
+    /** RF-14 */
+    private LocalityModel findLocality(Long localityId) {
+        return localityRepository.findById(localityId)
+                .map(userEntityMapper::toModel)
+                .orElseThrow(() -> new BadRequestException("La localidad no existe: " + localityId));
     }
 
     // Reglas de Negocio
@@ -252,9 +347,33 @@ public class UserService {
         return user;
     }
 
+    private boolean hasRole(UserModel user, RoleName roleName) {
+        return user.getRoles().stream().anyMatch(role -> role.getName().equals(roleName.name()));
+    }
+
+    /** Integración con Worker: si el usuario no tiene perfil de trabajador (404) no se hace nada */
+    private void changeWorkerStatus(UUID userId, String status) {
+        workerClient.findWorkerIdByUser(userId)
+                .ifPresent(workerId -> workerClient.updateStatus(workerId, status));
+    }
+
     private void checkNotAdmin(RoleName roleName) {
         if (roleName == RoleName.ADMIN) {
             throw new BadRequestException("El rol ADMIN no se puede asignar desde la cuenta");
+        }
+    }
+
+    /** RF-01. Opcional en fase 1; si viene, 18 años cumplidos a la fecha de hoy en Bogotá */
+    private void validateBirthDate(LocalDate birthDate) {
+        if (birthDate == null) {
+            return;
+        }
+        LocalDate today = LocalDate.now(BOGOTA);
+        if (birthDate.isBefore(MIN_BIRTH_DATE) || !birthDate.isBefore(today)) {
+            throw new BadRequestException("La fecha de nacimiento no es válida");
+        }
+        if (Period.between(birthDate, today).getYears() < ADULT_AGE) {
+            throw new BadRequestException("Debes ser mayor de edad para registrarte");
         }
     }
 

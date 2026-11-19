@@ -5,9 +5,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
@@ -21,6 +23,13 @@ public class UserRequestDTO {
     @Email(message = "El correo no tiene un formato válido")
     @Size(max = 150, message = "El correo admite máximo 150 caracteres")
     private String email;
+
+    /** Opcional mientras Identity la envía (fase 1); si viene, debe ser mayor de edad */
+    @Past(message = "La fecha de nacimiento debe ser anterior a hoy")
+    private LocalDate birthDate;
+
+    /** RF-14. Zona de cobertura (id del catálogo de localidades); opcional */
+    private Long localityId;
 
     @NotEmpty(message = "Debe registrar al menos un teléfono")
     @Size(max = 3, message = "Se admiten máximo 3 teléfonos")

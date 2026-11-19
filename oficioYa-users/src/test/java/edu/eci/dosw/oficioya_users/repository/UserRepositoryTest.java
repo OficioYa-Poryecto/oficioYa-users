@@ -8,8 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +53,29 @@ class UserRepositoryTest {
         UserEntity saved = userRepository.saveAndFlush(user);
         entityManager.clear();
         return saved;
+    }
+
+    /** Cuenta con los roles dados, creada e inactiva si tiene fecha de desactivación */
+    private void account(String email, LocalDateTime createdAt, LocalDateTime deactivatedAt, String... roleNames) {
+        Set<RoleEntity> roles = new HashSet<>();
+        for (String name : roleNames) {
+            roles.add(roleRepository.findByName(name).orElseGet(() -> {
+                RoleEntity role = new RoleEntity();
+                role.setName(name);
+                return roleRepository.save(role);
+            }));
+        }
+        UserEntity user = new UserEntity();
+        user.setName("Cuenta");
+        user.setEmail(email);
+        user.setAccountStatus(deactivatedAt == null ? AccountStatus.ACTIVE : AccountStatus.INACTIVE);
+        user.setDeactivatedAt(deactivatedAt);
+        user.setRoles(roles);
+        UUID id = userRepository.saveAndFlush(user).getId();
+        // created_at no se puede cambiar desde la entidad
+        entityManager.getEntityManager().createNativeQuery("UPDATE users SET created_at = :createdAt WHERE id = :id")
+                .setParameter("createdAt", createdAt).setParameter("id", id).executeUpdate();
+        entityManager.clear();
     }
 
     @Test
@@ -115,5 +142,52 @@ class UserRepositoryTest {
         assertThat(userRepository.findByEmail("inactivo@mail.com")).get()
                 .extracting(UserEntity::getId).isEqualTo(inactive.getId());
         assertThat(userRepository.findByEmail("otro@mail.com")).isEmpty();
+    }
+
+    @Test
+    void savesDeactivationDate() {
+        UserEntity inactive = newUser("inactivo@mail.com", AccountStatus.INACTIVE);
+        LocalDateTime date = LocalDateTime.of(2026, 11, 1, 10, 30);
+        inactive.setDeactivatedAt(date);
+        userRepository.saveAndFlush(inactive);
+        entityManager.clear();
+
+        assertThat(userRepository.findById(inactive.getId()).orElseThrow().getDeactivatedAt()).isEqualTo(date);
+    }
+
+    @Test
+    void countsAccountsByRoleRegisteredUntilEndAndDeactivatedInPeriod() {
+        LocalDateTime start = LocalDateTime.of(2026, 11, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 12, 1, 0, 0);
+        account("trabajador@mail.com", start.minusDays(10), null, "TRABAJADOR");
+        account("ambos@mail.com", start.plusDays(3), start.plusDays(5), "TRABAJADOR", "CONTRATANTE");
+        account("antes@mail.com", start.minusDays(40), start.minusDays(2), "CONTRATANTE");
+        account("despues@mail.com", end, null, "CONTRATANTE");
+        account("admin@mail.com", start, null, "ADMIN");
+        List<String> both = List.of("TRABAJADOR", "CONTRATANTE");
+
+        assertThat(userRepository.countRegistered(both, end)).isEqualTo(3);
+        assertThat(userRepository.countRegistered(List.of("TRABAJADOR"), end)).isEqualTo(2);
+        assertThat(userRepository.countRegistered(List.of("CONTRATANTE"), end)).isEqualTo(2);
+        assertThat(userRepository.countDeactivated(both, start, end)).isEqualTo(1);
+        assertThat(userRepository.countDeactivated(List.of("TRABAJADOR"), start, end)).isEqualTo(1);
+        assertThat(userRepository.countDeactivated(List.of("CONTRATANTE"), start, end)).isEqualTo(1);
+    }
+
+    /** La sentencia de data.sql completa la fecha de las cuentas inactivas que no la tienen. */
+    @Test
+    void dataSqlFillsDeactivationDateOfOldInactiveAccounts() throws IOException {
+        UserEntity active = newUser("activo@mail.com", AccountStatus.ACTIVE);
+        UserEntity oldInactive = newUser("inactivo@mail.com", AccountStatus.INACTIVE);
+        String backfill = new ClassPathResource("data.sql").getContentAsString(StandardCharsets.UTF_8).lines()
+                .filter(line -> line.startsWith("UPDATE users SET deactivated_at"))
+                .findFirst().orElseThrow();
+
+        entityManager.getEntityManager().createNativeQuery(backfill).executeUpdate();
+        entityManager.clear();
+
+        UserEntity filled = userRepository.findById(oldInactive.getId()).orElseThrow();
+        assertThat(filled.getDeactivatedAt()).isEqualTo(filled.getUpdatedAt());
+        assertThat(userRepository.findById(active.getId()).orElseThrow().getDeactivatedAt()).isNull();
     }
 }

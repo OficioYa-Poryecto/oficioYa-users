@@ -1,5 +1,6 @@
 package edu.eci.dosw.oficioya_users.mapper;
 
+import edu.eci.dosw.oficioya_users.dto.LocalityDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
 import edu.eci.dosw.oficioya_users.model.PhoneModel;
@@ -29,6 +30,9 @@ public class UserMapper {
         dto.setId(user.getId());
         dto.setName(user.getName());
         dto.setRoles(user.getRoles().stream().map(RoleModel::getName).collect(Collectors.toSet()));
+        if (user.getLocality() != null) {
+            dto.setLocality(new LocalityDTO(user.getLocality().getId(), user.getLocality().getName()));
+        }
         return dto;
     }
 
@@ -36,6 +40,7 @@ public class UserMapper {
     public UserResponseDTO toOwn(UserModel user) {
         UserResponseDTO dto = toPublic(user);
         dto.setEmail(maskEmail(user.getEmail()));
+        dto.setBirthDate(user.getBirthDate());
         dto.setPhones(user.getPhones().stream().map(p -> phoneDTO(p.getId(), maskPhone(p.getNumber()), p.isPrincipal())).toList());
         dto.setAccountStatus(user.getAccountStatus());
         dto.setCreatedAt(user.getCreatedAt());
@@ -46,6 +51,7 @@ public class UserMapper {
     public UserResponseDTO toAdmin(UserModel user) {
         UserResponseDTO dto = toPublic(user);
         dto.setEmail(user.getEmail());
+        dto.setBirthDate(user.getBirthDate());
         dto.setPhones(toPhoneDTOs(user.getPhones()));
         dto.setAccountStatus(user.getAccountStatus());
         dto.setCreatedAt(user.getCreatedAt());

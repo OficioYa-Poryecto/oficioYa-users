@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,6 +29,15 @@ public class UserEntity {
     @Column(nullable = false, unique = true, updatable = false, length = 150)
     private String email;
 
+    /** RF-01. Nullable: las cuentas anteriores y el admin semilla no la tienen */
+    @Column(updatable = false)
+    private LocalDate birthDate;
+
+    /** RF-14. Zona de cobertura; opcional */
+    @ManyToOne
+    @JoinColumn(name = "locality_id")
+    private LocalityEntity locality;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AccountStatus accountStatus;
@@ -36,6 +46,9 @@ public class UserEntity {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    /** Cuándo se desactivó la cuenta; null si está activa (RF-12) */
+    private LocalDateTime deactivatedAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PhoneEntity> phones = new ArrayList<>();

@@ -2,6 +2,7 @@ package edu.eci.dosw.oficioya_users.acceptance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.eci.dosw.oficioya_users.client.WorkerClient;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -13,18 +14,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -55,6 +59,7 @@ class UserAcceptanceTest {
     private static final String ADMIN_USERS = "/api/v1/admin/users";
     private static final String ADMIN_EMAIL = "admin@oficioya.com";
     private static final String ZONES = "/api/v1/zones";
+    private static final String STATS = USERS + "/stats/accounts";
 
     @Autowired
     private MockMvc mockMvc;
@@ -62,6 +67,9 @@ class UserAcceptanceTest {
     private ObjectMapper objectMapper;
     @Value("${jwt.secret}")
     private String secret;
+    /** Worker simulado: responde que el usuario no tiene perfil de trabajador */
+    @MockBean
+    private WorkerClient workerClient;
 
     private UUID adminId;
 
@@ -150,6 +158,30 @@ class UserAcceptanceTest {
             mockMvc.perform(registerRequest(tooManyPhones)).andExpect(status().isBadRequest());
             mockMvc.perform(registerRequest("{\"name\":\"\",\"email\":\"no-es-correo\",\"phones\":[],\"roles\":[]}"))
                     .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("Dado que soy mayor de edad, cuando me registro con mi fecha de nacimiento, entonces queda guardada en mi cuenta")
+        void registersAdultWithBirthDate() throws Exception {
+            String body = """
+                    {"name":"Sara","email":"sara.rf01@mail.com","birthDate":"1995-05-20",
+                     "phones":[{"number":"3005555555","principal":true}],"roles":["CONTRATANTE"]}""";
+
+            mockMvc.perform(registerRequest(body))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.birthDate").value("1995-05-20"));
+        }
+
+        @Test
+        @DisplayName("Dado que soy menor de edad o la fecha es futura, cuando me registro, entonces recibo 400")
+        void rejectsMinorOrFutureBirthDate() throws Exception {
+            String minor = java.time.LocalDate.now(java.time.ZoneId.of("America/Bogota")).minusYears(17).toString();
+            for (String date : new String[]{minor, "2999-01-01"}) {
+                String body = """
+                        {"name":"Leo","email":"leo.rf01@mail.com","birthDate":"%s",
+                         "phones":[{"number":"3006666666","principal":true}],"roles":["CONTRATANTE"]}""".formatted(date);
+                mockMvc.perform(registerRequest(body)).andExpect(status().isBadRequest());
+            }
         }
     }
 
@@ -514,6 +546,65 @@ class UserAcceptanceTest {
         void requiresToken() throws Exception {
             mockMvc.perform(get(USERS).param("ids", UUID.randomUUID().toString()))
                     .andExpect(status().isUnauthorized());
+        }
+    }
+
+    // RF-12
+
+    @Nested
+    @DisplayName("RF-12 Estadísticas de cuentas para Reporting")
+    class AccountStats {
+
+        private JsonNode stats(String from, String to) throws Exception {
+            String body = mockMvc.perform(get(STATS).param("from", from).param("to", to).header(AUTH, token(adminId, "ADMIN")))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            return objectMapper.readTree(body);
+        }
+
+        private static long increase(JsonNode before, JsonNode after, String group, String field) {
+            return after.get(group).get(field).asLong() - before.get(group).get(field).asLong();
+        }
+
+        @Test
+        @DisplayName("Dadas dos cuentas nuevas y una de ellas desactivada hoy, cuando el administrador consulta el periodo de hoy, entonces se cuentan como registradas y desactivadas, en total y por rol")
+        void countsRegisteredAndDeactivatedByRole() throws Exception {
+            String today = LocalDate.now().toString();
+            JsonNode before = stats(today, today);
+            register("Tomás", "tomas.rf12@mail.com", "TRABAJADOR");
+            UUID both = register("Lina", "lina.rf12@mail.com", "TRABAJADOR", "CONTRATANTE");
+            changeStatus(both, "deactivate").andExpect(status().isOk());
+
+            JsonNode after = stats(today, today);
+
+            assertThat(increase(before, after, "registered", "total")).isEqualTo(2);
+            assertThat(increase(before, after, "registered", "trabajador")).isEqualTo(2);
+            assertThat(increase(before, after, "registered", "contratante")).isEqualTo(1);
+            assertThat(increase(before, after, "deactivated", "total")).isEqualTo(1);
+            assertThat(increase(before, after, "deactivated", "trabajador")).isEqualTo(1);
+            assertThat(increase(before, after, "deactivated", "contratante")).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Cuando un usuario que no es administrador o un microservicio con rol SERVICE consulta las estadísticas, entonces recibe 403; sin token, 401")
+        void onlyAdminCanQuery() throws Exception {
+            String today = LocalDate.now().toString();
+            mockMvc.perform(get(STATS).param("from", today).param("to", today).header(AUTH, token(UUID.randomUUID(), "CONTRATANTE")))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get(STATS).param("from", today).param("to", today).header(AUTH, token(UUID.randomUUID(), "SERVICE")))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get(STATS).param("from", today).param("to", today))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("Cuando falta una fecha o la de inicio es posterior a la de fin, entonces recibe 400")
+        void rejectsInvalidPeriod() throws Exception {
+            mockMvc.perform(get(STATS).param("from", "2026-11-01").header(AUTH, token(adminId, "ADMIN")))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(get(STATS).param("from", "2026-11-30").param("to", "2026-11-01").header(AUTH, token(adminId, "ADMIN")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("La fecha from no puede ser posterior a to"));
         }
     }
 

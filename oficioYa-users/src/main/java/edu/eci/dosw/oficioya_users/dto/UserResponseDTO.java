@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.eci.dosw.oficioya_users.enums.AccountStatus;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +16,8 @@ public class UserResponseDTO {
     private UUID id;
     private String name;
     private String email;
+    private LocalDate birthDate;
+    private LocalityDTO locality;
     private List<PhoneDTO> phones;
     private Set<String> roles;
     private AccountStatus accountStatus;

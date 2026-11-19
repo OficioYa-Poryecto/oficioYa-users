@@ -1,5 +1,6 @@
 package edu.eci.dosw.oficioya_users.controller;
 
+import edu.eci.dosw.oficioya_users.dto.AccountStatsDTO;
 import edu.eci.dosw.oficioya_users.dto.PhoneDTO;
 import edu.eci.dosw.oficioya_users.dto.UserRequestDTO;
 import edu.eci.dosw.oficioya_users.dto.UserResponseDTO;
@@ -10,12 +11,14 @@ import edu.eci.dosw.oficioya_users.enums.RoleName;
 import edu.eci.dosw.oficioya_users.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,7 +32,8 @@ public class UserController {
 
     @PostMapping("/users")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Registrar cuenta", description = "RF-01. Crea la cuenta activa con rol TRABAJADOR y/o CONTRATANTE")
+    @Operation(summary = "Registrar cuenta", description = "RF-01. Crea la cuenta activa con rol TRABAJADOR y/o CONTRATANTE. "
+            + "birthDate (AAAA-MM-DD) es opcional por ahora; si viene, 400 si es menor de 18 años, futura o anterior a 1900. localityId (zona de cobertura, RF-14) es opcional; 400 si no existe")
     public UserResponseDTO register(@Valid @RequestBody UserRequestDTO request) {
         return userService.register(request);
     }
@@ -54,16 +58,25 @@ public class UserController {
     }
 
     @PatchMapping("/users/me")
-    @Operation(summary = "Editar perfil propio", description = "RF-04. Nombre y teléfonos")
+    @Operation(summary = "Editar perfil propio", description = "RF-04. Nombre, teléfonos y zona de cobertura (localityId, RF-14)")
     public UserResponseDTO updateOwnProfile(@AuthenticationPrincipal UUID userId,
                                             @Valid @RequestBody UserUpdateDTO request) {
         return userService.updateOwnProfile(userId, request);
     }
 
     @PostMapping("/users/me/roles/{role}")
-    @Operation(summary = "Agregar rol", description = "RF-02. Agrega el rol faltante a la misma cuenta")
+    @Operation(summary = "Agregar rol", description = "RF-02. Agrega el rol faltante a la misma cuenta. "
+            + "Si es TRABAJADOR y ya tenía perfil en Worker, lo reactiva (ACTIVE)")
     public UserResponseDTO addRole(@AuthenticationPrincipal UUID userId, @PathVariable RoleName role) {
         return userService.addRole(userId, role);
+    }
+
+    @DeleteMapping("/users/me/roles/{role}")
+    @Operation(summary = "Quitar rol", description = "RF-13. Quita TRABAJADOR o CONTRATANTE si no tiene solicitudes "
+            + "activas en ese rol; al quitar TRABAJADOR pausa su perfil en Worker. 400 si es ADMIN, 403 cuenta de admin, "
+            + "409 si no lo tiene, es el único o tiene solicitudes activas, 503 si Servicios o Worker no responden")
+    public UserResponseDTO removeRole(@AuthenticationPrincipal UUID userId, @PathVariable RoleName role) {
+        return userService.removeRole(userId, role);
     }
 
     @GetMapping("/users/me/phones")
@@ -121,6 +134,16 @@ public class UserController {
     public UserResponseDTO activate(@AuthenticationPrincipal UUID adminId, @PathVariable UUID id,
                                     @Valid @RequestBody StatusChangeDTO request) {
         return userService.changeStatus(adminId, id, AccountStatus.ACTIVE, request.getReason());
+    }
+
+    @GetMapping("/users/stats/accounts")
+    @Operation(summary = "Estadísticas de cuentas",
+            description = "RF-12. Solo ADMIN (Reporting reenvía el token del administrador). Cuentas registradas hasta 'to' "
+                    + "y desactivadas entre 'from' y 'to', en total y por rol. Fechas en formato AAAA-MM-DD")
+    public AccountStatsDTO accountStats(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return userService.getAccountStats(from, to);
     }
 
     @GetMapping("/users/by-email")
