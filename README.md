@@ -9,8 +9,94 @@ Por lo tanto, debe llevar a cabo qué campos de visualización debe tener el reg
 
 ## Alcance
 
-* Operaciones CRUD sobre los usuarios del sistema.
-* Perfil de usuario.
+* Registro de cuentas con rol TRABAJADOR y/o CONTRATANTE, fecha de nacimiento (mayor de edad) y zona de cobertura.
+* Perfil propio, edición del perfil, teléfonos (máximo 3, uno principal) y perfil público de otros usuarios.
+* Agregar y quitar roles conservando al menos uno.
+* Administración: consulta de cuentas, desactivación y reactivación con motivo.
+* Catálogo de zonas (barrios) y de localidades de Bogotá (zona de cobertura).
+* Consultas para otros microservicios (Identity, Worker, Requests, Reporting).
+
+Los requerimientos y criterios de aceptación completos están en [requirements.md](oficioYa-users/docs/requirements/requirements.md) y [acceptance-criteria.md](oficioYa-users/docs/requirements/acceptance-criteria.md).
+
+## Tecnologías
+
+* Java 21 y Spring Boot 3.3.4 (Web, Data JPA, Validation, Security)
+* PostgreSQL (Azure) y H2 para pruebas
+* JWT HS256 emitido por Identity (claim `roles` como lista)
+* MapStruct y Lombok
+* Swagger (springdoc)
+* JUnit 5, Mockito y JaCoCo (cobertura mínima 80 %)
+* GitHub Actions, SonarCloud y Azure App Service
+
+## Endpoints
+
+Base: `/api/v1`. Todos requieren token salvo los marcados como públicos.
+
+| Método | Ruta | Acceso | RF |
+|---|---|---|---|
+| POST | `/users` | SERVICE | RF-01 |
+| POST / DELETE | `/users/me/roles/{role}` | Usuario | RF-02, RF-13 |
+| GET / PATCH | `/users/me` | Usuario | RF-03, RF-04 |
+| GET / POST | `/users/me/phones` | Usuario | RF-04 |
+| PATCH / DELETE | `/users/me/phones/{phoneId}` | Usuario | RF-04 |
+| GET | `/users/{id}` | Usuario | RF-05 |
+| GET | `/admin/users` y `/admin/users/{id}` | ADMIN | RF-08 |
+| PATCH | `/admin/users/{id}/deactivate` y `/activate` | ADMIN | RF-06, RF-07 |
+| GET | `/zones` | Público | RF-09 |
+| GET | `/users?ids=` | Autenticado | RF-10 |
+| GET | `/users/by-email` y `/users/{id}/account` | SERVICE | RF-11 |
+| GET | `/users/stats/accounts?from=&to=` | ADMIN | RF-12 |
+| GET | `/localities` | Público | RF-14 |
+| GET | `/localities/{id}/workers` | Autenticado | RF-14 |
+| DELETE | `/users/{id}` | SERVICE | Compensación |
+
+Sin token se recibe 401 y con un rol que no corresponde se recibe 403. Los errores siempre responden con el formato `timestamp`, `status`, `error`, `message` y `route`.
+
+Documentación interactiva: `/swagger-ui.html`.
+
+## Ejecución local
+
+Variables de entorno (ver [.env.example](oficioYa-users/.env.example)):
+
+| Variable | Descripción |
+|---|---|
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Conexión a la base de datos |
+| `JWT_SECRET` | Clave compartida con Identity, en Base64 |
+| `WORKERS_URL`, `REQUESTS_URL` | URL de los microservicios de Worker y Requests |
+| `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PHONE` | Cuenta de administrador que se crea al iniciar |
+
+Con H2 en memoria, sin instalar PostgreSQL:
+
+```bash
+cd oficioYa-users
+# DB_URL=jdbc:h2:mem:oficioya  DB_USERNAME=sa  DB_PASSWORD=  JWT_SECRET=<Base64>
+mvn spring-boot:run "-Dspring-boot.run.useTestClasspath=true"
+```
+
+La aplicación queda en `http://localhost:8080` y carga los catálogos de zonas y localidades desde `data.sql`.
+
+## Pruebas y calidad
+
+```bash
+cd oficioYa-users
+mvn clean verify
+```
+
+Ejecuta las pruebas unitarias, de integración y de aceptación, y valida la cobertura mínima de JaCoCo (80 %). El reporte queda en `target/site/jacoco/index.html`.
+
+El pipeline de [GitHub Actions](.github/workflows/ci-cd.yml) compila, prueba, analiza en SonarCloud (Quality Gate) y, con cada push a `main`, despliega en Azure App Service.
+
+## Postman
+
+La colección [oficioya-users.postman_collection.json](oficioYa-users/docs/oficioya-users.postman_collection.json) cubre los escenarios de éxito y error de cada requerimiento.
+
+1. Importar la colección.
+2. Poner en la variable `jwtSecret` el mismo valor de `JWT_SECRET`. Los tokens de usuario, administrador y SERVICE se generan solos.
+3. Ejecutar en orden con *Run collection*.
+
+Quitar un rol consulta las solicitudes activas en Requests, así que ese microservicio debe estar disponible.
+
+Evidencias: [Swagger](oficioYa-users/docs/evidencias/swagger.png) y [ejecución en Postman](oficioYa-users/docs/evidencias/postman-run.png).
 
 ## Diagrama de clases
 
