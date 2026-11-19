@@ -45,8 +45,8 @@ public class WorkerClient {
         Map<?, ?> worker;
         try {
             worker = restClient.get()
-                    .uri("/api/v1/workers/me")
-                    .header(HttpHeaders.AUTHORIZATION, tokenProvider.bearerFor(userId))
+                    .uri("/api/v1/workers/by-user/{userId}", userId)
+                    .header(HttpHeaders.AUTHORIZATION, tokenProvider.bearer())
                     .retrieve()
                     .body(Map.class);
         } catch (HttpClientErrorException.NotFound exception) {
