@@ -24,7 +24,7 @@ class ServiceTokenProviderTest {
                 .build()
                 .parseSignedClaims(bearer.substring("Bearer ".length()))
                 .getPayload();
-        assertThat(claims.getSubject()).isEqualTo("oficioya-users");
+        assertThat(claims.getSubject()).isEqualTo(java.util.UUID.nameUUIDFromBytes("oficioya-users".getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());
         assertThat(claims.get("roles", List.class)).containsExactly("SERVICE");
         assertThat(claims.getExpiration()).isInTheFuture();
     }
